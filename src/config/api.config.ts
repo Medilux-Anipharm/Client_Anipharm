@@ -5,8 +5,9 @@
 
 // 환경에 따라 API URL을 설정합니다
 // 개발 환경에서는 로컬 서버를 사용합니다
+// 주의: 앱(iOS/Android)에서는 localhost 대신 실제 IP 주소를 사용해야 합니다
 const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000/api'  // 개발 환경
+  ? 'http://192.168.0.53:3000/api'  // 개발 환경 (앱에서 작동)
   : 'https://your-production-api.com/api';  // 프로덕션 환경
 
 // API 타임아웃 설정 (밀리초)
