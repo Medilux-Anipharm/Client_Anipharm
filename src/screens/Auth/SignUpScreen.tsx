@@ -18,12 +18,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { register } from '../../services/auth.service';
-import { RegisterRequest } from '../../types/auth.types';
+import { RegisterRequest, User } from '../../types/auth.types';
 
 type SignUpStep = 'email' | 'password' | 'passwordConfirm' | 'nickname';
 
 interface SignUpScreenProps {
   onNavigateToLogin: () => void;
+  onSignUpSuccess?: (user: User) => void;
 }
 
 const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
