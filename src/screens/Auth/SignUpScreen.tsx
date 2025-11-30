@@ -22,7 +22,11 @@ import { RegisterRequest } from '../../types/auth.types';
 
 type SignUpStep = 'email' | 'password' | 'passwordConfirm' | 'nickname';
 
-const SignUpScreen = ({ navigation }: any) => {
+interface SignUpScreenProps {
+  onNavigateToLogin: () => void;
+}
+
+const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
   // 현재 단계
   const [currentStep, setCurrentStep] = useState<SignUpStep>('email');
 
@@ -170,7 +174,7 @@ const SignUpScreen = ({ navigation }: any) => {
         setNicknameError('');
         break;
       case 'email':
-        navigation.goBack();
+        // 첫 화면에서는 뒤로가기 없음
         break;
     }
   };
@@ -199,7 +203,8 @@ const SignUpScreen = ({ navigation }: any) => {
             {
               text: '확인',
               onPress: () => {
-                navigation.navigate('Login');
+                // 로그인 화면으로 이동
+                onNavigateToLogin();
               },
             },
           ]
