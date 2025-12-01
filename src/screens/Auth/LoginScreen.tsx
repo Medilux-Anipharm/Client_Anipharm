@@ -18,13 +18,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { login } from '../../services/auth.service';
-import { LoginRequest } from '../../types/auth.types';
+import { LoginRequest, User } from '../../types/auth.types';
 
 interface LoginScreenProps {
   onNavigateToSignUp: () => void;
+  onLoginSuccess: (user: User) => void;
 }
 
-const LoginScreen = ({ onNavigateToSignUp }: LoginScreenProps) => {
+const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) => {
   // 입력 필드 상태
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -93,11 +94,18 @@ const LoginScreen = ({ onNavigateToSignUp }: LoginScreenProps) => {
       };
 
       const response = await login(requestData);
+      console.log('로그인 응답:', response)
 
       if (response.success) {
-        // 로그인 성공
-        Alert.alert('로그인 성공', `환영합니다, ${response.data.user.nickname}님!`);
-        // TODO: 실제 토큰 저장 및 홈 화면으로 이동
+        // 로그인 성공 - 바로 페이지 이동
+        console.log('로그인 성공! 사용자 데이터:', response.data.user);
+        console.log('onLoginSuccess 함수 호출 시작');
+        const user = response.data.user;
+        console.log('전달할 user:', user);
+        onLoginSuccess(user);
+        console.log('onLoginSuccess 함수 호출 완료');
+      } else {
+        console.log('response.success가 false입니다:', response);
       }
     } catch (error: any) {
       console.error('로그인 에러:', error);

@@ -32,6 +32,7 @@ export const login = async (data: LoginRequest): Promise<LoginResponse> => {
     API_CONFIG.ENDPOINTS.AUTH.LOGIN,
     data
   );
+  console.log('로그인 데이터 확인:',response.data)
   return response.data;
 };
 
