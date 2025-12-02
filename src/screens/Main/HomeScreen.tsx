@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { User } from '../../types/auth.types';
 import mapService from '../../services/map.service';
 import hospitalService from '../../services/hospital.service';
@@ -48,10 +49,54 @@ const HomeScreen = ({ userData, onLogout, onNavigateToPetProfile }: HomeScreenPr
   const [mapViewMode, setMapViewMode] = useState<'map' | 'list'>('map'); // 지도/리스트 뷰 모드
   const webViewRef = useRef<WebView>(null);
 
-  // 초기 위치 설정 (서울시청 기준)
+  // 실제 사용자 위치 가져오기 및 백엔드로 전송
   useEffect(() => {
-    setCurrentLocation({ latitude: 37.5665, longitude: 126.9780 });
-  }, []);
+    const getCurrentLocation = async () => {
+      try {
+        // 위치 권한 요청
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        
+        if (status !== 'granted') {
+          // 권한이 거부된 경우 기본 위치(서울시청) 사용
+          console.log('위치 권한이 거부되었습니다. 기본 위치를 사용합니다.');
+          const defaultLocation = { latitude: 37.5665, longitude: 126.9780 };
+          setCurrentLocation(defaultLocation);
+          return;
+        }
+
+        // 현재 위치 가져오기
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const userLocation = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+
+        setCurrentLocation(userLocation);
+
+        // 백엔드로 위치 전송
+        try {
+          await mapService.sendLocation(
+            userLocation.latitude,
+            userLocation.longitude,
+            userData?.userId
+          );
+          console.log('위치가 백엔드로 성공적으로 전송되었습니다.');
+        } catch (error) {
+          console.error('위치 전송 실패:', error);
+          // 위치 전송 실패해도 앱은 계속 작동
+        }
+      } catch (error) {
+        console.error('위치 가져오기 실패:', error);
+        // 위치 가져오기 실패 시 기본 위치 사용
+        setCurrentLocation({ latitude: 37.5665, longitude: 126.9780 });
+      }
+    };
+
+    getCurrentLocation();
+  }, [userData?.userId]);
 
   // 카테고리별 장소 검색
   useEffect(() => {

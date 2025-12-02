@@ -54,6 +54,32 @@ class MapService {
       );
     }
   }
+
+  /**
+   * 사용자 위치를 백엔드로 전송
+   * @param latitude - 위도
+   * @param longitude - 경도
+   * @param userId - 사용자 ID (선택사항)
+   * @returns 전송 결과
+   */
+  async sendLocation(
+    latitude: number,
+    longitude: number,
+    userId?: number
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.post('/map/location', {
+        latitude,
+        longitude,
+        userId,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.error || '위치 전송 중 오류가 발생했습니다.'
+      );
+    }
+  }
 }
 
 export default new MapService();

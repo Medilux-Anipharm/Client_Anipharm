@@ -52,6 +52,7 @@ export const API_CONFIG = {
     MAP: {
       GEOCODE: '/map/geocode',
       SEARCH: '/map/search',
+      LOCATION: '/map/location',
     },
     // Hospital 관련 엔드포인트
     HOSPITALS: {
