@@ -7,11 +7,19 @@
 // 개발 환경에서는 로컬 서버를 사용합니다
 // 주의: 앱(iOS/Android)에서는 localhost 대신 실제 IP 주소를 사용해야 합니다
 const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000/api'  // 개발 환경 (앱에서 작동)
-  : 'https://your-production-api.com/api';  // 프로덕션 환경
+  ? "http://192.168.0.57:3000/api" // 개발 환경 (앱에서 작동)
+  : "https://your-production-api.com/api";  // 프로덕션 환경
 
 // API 타임아웃 설정 (밀리초)
 const API_TIMEOUT = 10000;
+
+// Naver 지도 API 클라이언트 ID
+// 네이버 클라우드 플랫폼에서 발급받은 지도 API 클라이언트 ID를 입력하세요
+// .env 파일의 EXPO_PUBLIC_NAVER_MAP_CLIENT_ID 또는 NAVER_GEOCODE_CLIENT_ID 사용
+export const NAVER_MAP_CLIENT_ID = 
+  process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID || 
+  process.env.NAVER_GEOCODE_CLIENT_ID || 
+  'YOUR_NAVER_MAP_CLIENT_ID';
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
@@ -39,6 +47,20 @@ export const API_CONFIG = {
       LIST: '/pets',
       CREATE: '/pets',
       DETAIL: (id: number) => `/pets/${id}`,
+    },
+    // Map 관련 엔드포인트
+    MAP: {
+      GEOCODE: '/map/geocode',
+      SEARCH: '/map/search',
+    },
+    // Hospital 관련 엔드포인트
+    HOSPITALS: {
+      NEARBY: '/hospitals/nearby',
+      SEARCH: '/hospitals/search',
+      MARKERS: '/hospitals/markers',
+      DETAIL: (id: number) => `/hospitals/${id}`,
+      HOUR_24: '/hospitals/24hour',
+      TOP_RATED: '/hospitals/top-rated',
     }
   }
 };
