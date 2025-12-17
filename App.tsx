@@ -76,7 +76,7 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
-    const { logout } = await import('./src/services/auth.service');
+    const { logout } = await import('./src/services/auth');
     await logout();
     setUserData(null);
     setCurrentScreen('login');
