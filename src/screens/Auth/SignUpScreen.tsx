@@ -19,6 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { register } from '../../services/auth';
 import { RegisterRequest, User } from '../../types/auth';
+import SuccessModal from './SuccessModal';
 
 type SignUpStep = 'email' | 'password' | 'passwordConfirm' | 'nickname';
 
@@ -41,6 +42,7 @@ const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // 에러 상태
   const [emailError, setEmailError] = useState('');
@@ -198,20 +200,8 @@ const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
       const response = await register(requestData);
 
       if (response.success) {
-        Alert.alert(
-          '🎉 회원가입 성공',
-          '회원가입이 완료되었습니다.\n로그인 후 Anipharm의 다양한 서비스를 이용해보세요!',
-          [
-            {
-              text: '로그인하러 가기',
-              onPress: () => {
-                // 로그인 화면으로 이동
-                onNavigateToLogin();
-              },
-            },
-          ],
-          { cancelable: false }
-        );
+        // 성공 모달 표시
+        setShowSuccessModal(true);
       }
     } catch (error: any) {
       console.error('회원가입 에러:', error);
@@ -228,6 +218,15 @@ const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * 성공 모달 확인 버튼 핸들러
+   */
+  const handleSuccessModalConfirm = () => {
+    setShowSuccessModal(false);
+    // 로그인 화면으로 이동
+    onNavigateToLogin();
   };
 
   /**
@@ -458,6 +457,12 @@ const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* 성공 모달 */}
+      <SuccessModal
+        visible={showSuccessModal}
+        onConfirm={handleSuccessModalConfirm}
+      />
     </KeyboardAvoidingView>
   );
 };
