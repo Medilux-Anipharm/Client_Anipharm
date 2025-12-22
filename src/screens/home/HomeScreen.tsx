@@ -31,6 +31,8 @@ import { VeterinaryHospital } from '../../types/hospital';
 import { VeterinaryPharmacy } from '../../types/pharmacy';
 import { NAVER_MAP_CLIENT_ID } from '../../config/api';
 import ChatbotScreen from '../chatbot/ChatbotScreen';
+import { useLocation } from '../../hooks/useLocation';
+import { useMapData } from '../../hooks/useMapData';
 
 type TabType = 'home' | 'community' | 'chatbot' | 'journal' | 'profile';
 
@@ -40,262 +42,57 @@ interface HomeScreenProps {
   onNavigateToPetProfile?: () => void;
 }
 
+
+
+
 const HomeScreen = ({ userData, onLogout, onNavigateToPetProfile }: HomeScreenProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MapCategory | 'all'>('all');
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [hospitals, setHospitals] = useState<VeterinaryHospital[]>([]);
-  const [pharmacies, setPharmacies] = useState<VeterinaryPharmacy[]>([]);
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [selectedHospital, setSelectedHospital] = useState<VeterinaryHospital | null>(null);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<VeterinaryPharmacy | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const {currentLocation } = useLocation(userData?.userId)
   const [mapViewMode, setMapViewMode] = useState<'map' | 'list'>('map'); // 지도/리스트 뷰 모드
   const webViewRef = useRef<WebView>(null);
+  const {
+    places,
+    hospitals,
+    pharmacies,
+    selectedPlace,
+    selectedHospital,
+    selectedPharmacy,
+    loading,
+    loadPlaces,
+    searchPlaces,
+    setSelectedPlace,
+    setSelectedHospital,
+    setSelectedPharmacy
+  } = useMapData()
 
-  // 실제 사용자 위치 가져오기 및 백엔드로 전송
-  useEffect(() => {
-    const getCurrentLocation = async () => {
-      try {
-        // 위치 권한 요청
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        
-        if (status !== 'granted') {
-          // 권한이 거부된 경우 기본 위치(서울시청) 사용
-          console.log('위치 권한이 거부되었습니다. 기본 위치를 사용합니다.');
-          const defaultLocation = { latitude: 37.5665, longitude: 126.9780 };
-          setCurrentLocation(defaultLocation);
-          return;
-        }
-
-        // 현재 위치 가져오기
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-
-        const userLocation = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-
-        setCurrentLocation(userLocation);
-
-        // 백엔드로 위치 전송
-        try {
-          await mapService.sendLocation(
-            userLocation.latitude,
-            userLocation.longitude,
-            userData?.userId
-          );
-          console.log('위치가 백엔드로 성공적으로 전송되었습니다.');
-        } catch (error) {
-          console.error('위치 전송 실패:', error);
-          // 위치 전송 실패해도 앱은 계속 작동
-        }
-      } catch (error) {
-        console.error('위치 가져오기 실패:', error);
-        // 위치 가져오기 실패 시 기본 위치 사용
-        setCurrentLocation({ latitude: 37.5665, longitude: 126.9780 });
-      }
-    };
-
-    getCurrentLocation();
-  }, [userData?.userId]);
-
-  // 카테고리별 장소 검색
-  useEffect(() => {
-    if (currentLocation) {
-      if (selectedCategory === 'all') {
-        // "전체" 카테고리 선택 시 "동물" 키워드로 검색
-        loadPlaces('all');
-      } else {
-        loadPlaces(selectedCategory);
-      }
+  useEffect(()=>{
+    if(currentLocation){
+      loadPlaces(selectedCategory, currentLocation)
     }
-  }, [selectedCategory, currentLocation]);
+  }, [selectedCategory, currentLocation])
 
-  // 장소 검색 함수
-  const loadPlaces = async (category: MapCategory | 'all') => {
-    try {
-      setLoading(true);
-      
-      // "전체" 카테고리는 동물병원 + 동물약국 합쳐서 표시
-      if (category === 'all' && currentLocation) {
-        // 동물병원과 동물약국을 동시에 검색
-        const [hospitalResults, pharmacyResults] = await Promise.all([
-          hospitalService.findNearby(
-            currentLocation.latitude,
-            currentLocation.longitude,
-            5 // 5km 반경
-          ),
-          pharmacyService.findNearby(
-            currentLocation.latitude,
-            currentLocation.longitude,
-            5 // 5km 반경
-          )
-        ]);
-        
-        setHospitals(hospitalResults);
-        setPharmacies(pharmacyResults);
-        setPlaces([]);
-        
-        // 첫 번째 병원을 선택 (병원이 없으면 약국)
-        if (hospitalResults.length > 0) {
-          setSelectedHospital(hospitalResults[0]);
-          setSelectedPharmacy(null);
-          setSelectedPlace(null);
-        } else if (pharmacyResults.length > 0) {
-          setSelectedPharmacy(pharmacyResults[0]);
-          setSelectedHospital(null);
-          setSelectedPlace(null);
-        } else {
-          setSelectedHospital(null);
-          setSelectedPharmacy(null);
-          setSelectedPlace(null);
-        }
-      } else if (category === 'hospital' && currentLocation) {
-      // 동물병원 카테고리는 DB에서 검색
-        const results = await hospitalService.findNearby(
-          currentLocation.latitude,
-          currentLocation.longitude,
-          5 // 5km 반경
-        );
-        setHospitals(results);
-        setPlaces([]);
-        setPharmacies([]);
-        if (results.length > 0) {
-          setSelectedHospital(results[0]);
-          setSelectedPlace(null);
-          setSelectedPharmacy(null);
-        } else {
-          setSelectedHospital(null);
-        }
-      } else if (category === 'pharmacy' && currentLocation) {
-        // 동물약국 카테고리는 DB에서 검색
-        const results = await pharmacyService.findNearby(
-          currentLocation.latitude,
-          currentLocation.longitude,
-          5 // 5km 반경
-        );
-        setPharmacies(results);
-        setPlaces([]);
-        setHospitals([]);
-        if (results.length > 0) {
-          setSelectedPharmacy(results[0]);
-          setSelectedPlace(null);
-          setSelectedHospital(null);
-        } else {
-          setSelectedPharmacy(null);
-        }
-      } else {
-        // 기타 카테고리는 Naver API에서 검색 (기본 동작)
-        const options = currentLocation
-          ? {
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
-              display: 20,
-            }
-          : { display: 20 };
-        
-        const results = await mapService.searchByCategory(category, options);
-        setPlaces(results);
-        setHospitals([]);
-        setPharmacies([]);
-        if (results.length > 0) {
-          setSelectedPlace(results[0]);
-          setSelectedHospital(null);
-          setSelectedPharmacy(null);
-        } else {
-          setSelectedPlace(null);
-        }
-      }
-    } catch (error: any) {
-      Alert.alert('오류', error.message || '장소를 불러오는 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 검색어로 주소 검색
-  // 네이버 지도 검색 (키워드 검색)
-  const handleSearch = async () => {
+  // 검색 핸들러
+  const handleSearch = () => {
     if (!searchQuery.trim()) {
       Alert.alert('알림', '검색어를 입력해주세요.');
       return;
     }
 
-    try {
-      setLoading(true);
-      
-      // 네이버 지도 검색 API 사용 (카테고리 없이 키워드 검색)
-      // 'all' 카테고리로 검색하거나, 현재 선택된 카테고리로 검색
-      const searchCategory = selectedCategory === 'all' ? 'hospital' : selectedCategory;
-      
-      const options = currentLocation
-        ? {
-            region: searchQuery, // 검색어를 지역으로 사용
-            latitude: currentLocation.latitude,
-            longitude: currentLocation.longitude,
-            display: 20,
-          }
-        : {
-            region: searchQuery,
-            display: 20,
-          };
-      
-      const results = await mapService.searchByCategory(searchCategory as MapCategory, options);
-      
-      if (searchCategory === 'hospital') {
-        setHospitals([]);
-        setPlaces([]);
-        // 병원 검색 결과를 hospitals 형식으로 변환
-        const hospitalResults = results.map((place, index) => ({
-          hospitalId: index + 1,
-          name: place.name,
-          address: place.address || place.roadAddress || '',
-          latitude: place.latitude || 0,
-          longitude: place.longitude || 0,
-          is24h: false,
-          isEmergency: false,
-          ratingAverage: 0,
-          reviewCount: 0,
-        }));
-        setHospitals(hospitalResults);
-        if (hospitalResults.length > 0) {
-          setSelectedHospital(hospitalResults[0]);
-        }
-      } else {
-        setPlaces(results);
-        setHospitals([]);
-        if (results.length > 0) {
-          setSelectedPlace(results[0]);
-        }
-      }
-      
-      // 검색 결과가 있으면 첫 번째 결과 위치로 지도 이동
-      if (results.length > 0 && results[0].latitude && results[0].longitude) {
-        setCurrentLocation({
-          latitude: results[0].latitude,
-          longitude: results[0].longitude,
-        });
-      }
-    } catch (error: any) {
-      Alert.alert('오류', error.message || '검색 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
+    if (selectedCategory === 'all') {
+      Alert.alert('알림', '카테고리를 선택해주세요.');
+      return;
+    }
+
+    if (currentLocation) {
+      searchPlaces(searchQuery, selectedCategory as MapCategory, currentLocation);
     }
   };
 
-  // 카테고리 필터 변경
+  // 카테고리 변경 핸들러
   const handleCategoryChange = (category: MapCategory | 'all') => {
     setSelectedCategory(category);
-    // 'all' 카테고리는 loadPlaces에서 처리되므로 여기서는 초기화만
-    if (category === 'all') {
-      setPharmacies([]);
-      setSelectedPharmacy(null);
-    }
   };
 
   // 병원 선택 핸들러

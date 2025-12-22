@@ -67,6 +67,22 @@ export const API_CONFIG = {
     PHARMACIES: {
       NEARBY: '/pharmacies/nearby',
       MARKERS: '/pharmacies/markers',
+    },
+    //챗봇 관련 엔드 포인트
+    CHATBOT : {
+      //건강 상담 시작
+      HEALTHSTART: '/chatbot/health/start',
+      // 케어관리 시작
+      CARESTART : '/chatbot/care/start',
+      // 챗봇 메세지 보내기
+      MESSAGE : '/chatbot/message',
+      // 결과 평가
+      ASSESS : '/chatbot/assess',
+      // 대화 스크립트 조회
+      SCRIPT : 'chatbot/conversation/script',
+      // 대화종료
+      END : '/chatbot/conversation/end'
+
     }
   }
 };
