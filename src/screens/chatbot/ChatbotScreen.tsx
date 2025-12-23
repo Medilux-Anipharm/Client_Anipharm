@@ -17,16 +17,28 @@ import { Ionicons } from '@expo/vector-icons';
 interface ChatbotScreenProps {
   onSelectHealthConsult?: () => void;
   onSelectCareConsult?: () => void;
+  onNavigateToInbox?: () => void;
 }
 
-const ChatbotScreen = ({ onSelectHealthConsult, onSelectCareConsult }: ChatbotScreenProps) => {
+const ChatbotScreen = ({ onSelectHealthConsult, onSelectCareConsult, onNavigateToInbox }: ChatbotScreenProps) => {
   return (
     <SafeAreaView style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>상담하기</Text>
-        <TouchableOpacity style={styles.inboxButton}>
-          <Ionicons name="mail-outline" size={24} color="#fff" />
+        <TouchableOpacity
+          style={styles.inboxButton}
+          onPress={() => {
+            console.log('[ChatbotScreen] 보관함 버튼 클릭됨');
+            if (onNavigateToInbox) {
+              console.log('[ChatbotScreen] onNavigateToInbox 호출');
+              onNavigateToInbox();
+            } else {
+              console.warn('[ChatbotScreen] onNavigateToInbox가 정의되지 않음');
+            }
+          }}
+        >
+          <Ionicons name="archive-outline" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -61,7 +73,15 @@ const ChatbotScreen = ({ onSelectHealthConsult, onSelectCareConsult }: ChatbotSc
           {/* 케어 관리 상담 */}
           <TouchableOpacity
             style={styles.card}
-            onPress={onSelectCareConsult}
+            onPress={() => {
+              console.log('[케어 관리 상담] 카드 클릭됨');
+              if (onSelectCareConsult) {
+                console.log('[케어 관리 상담] onSelectCareConsult 호출');
+                onSelectCareConsult();
+              } else {
+                console.warn('[케어 관리 상담] onSelectCareConsult가 정의되지 않음');
+              }
+            }}
             activeOpacity={0.8}
           >
             <View style={[styles.iconContainer, styles.iconCare]}>

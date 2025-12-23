@@ -17,7 +17,9 @@ export const useMapData = () : UseMapDataReturn => {
   const [selectedPharmacy, setSelectedPharmacy] = useState<VeterinaryPharmacy | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const loadPlaces = async (category: MapCategory | 'all', location: LocationCoords | null) => {
+
+
+const loadPlaces = async (category: MapCategory | 'all', location: LocationCoords | null) => {
     try {
       console.log(`[loadPlaces] 호출됨 - category: ${category}, location:`, location);
       setLoading(true)

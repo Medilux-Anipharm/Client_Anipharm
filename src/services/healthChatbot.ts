@@ -87,6 +87,51 @@ export interface ConversationScriptResponse {
   };
 }
 
+export interface ConversationItem {
+  conversationId: number;
+  petId: number;
+  conversationType: 'health_status' | 'care_management';
+  createdAt: string;
+  updatedAt: string;
+  summary?: string;
+}
+
+export interface ConversationListResponse {
+  success: boolean;
+  message: string;
+  data: {
+    conversations: ConversationItem[];
+  };
+}
+
+export interface InboxItem {
+  conversationId: number;
+  petId: number;
+  conversationType: 'health_status' | 'care_management';
+  conversationTypeLabel?: string;
+  healthCheckId?: number | null;
+  messageCount?: number;
+  userMessageCount?: number;
+  assistantMessageCount?: number;
+  startTime?: string | Date;
+  endTime?: string | Date;
+  duration?: number;
+  summary?: {
+    firstUserMessage?: string | null;
+    lastAssistantMessage?: string | null;
+  } | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InboxListResponse {
+  success: boolean;
+  message: string;
+  data: {
+    conversations: InboxItem[];
+  };
+}
+
 /**
  * 건강 상태 상담 시작 (자가검진 필수)
  */
@@ -163,7 +208,8 @@ export const endConversation = async (
 export const getConversationScript = async (
   petId: number,
   conversationType: 'health_status' | 'care_management',
-  healthCheckId?: number | null
+  healthCheckId?: number | null,
+  conversationId?: number | null
 ): Promise<ConversationScriptResponse> => {
   const params = new URLSearchParams({
     petId: petId.toString(),
@@ -172,9 +218,65 @@ export const getConversationScript = async (
   if (healthCheckId) {
     params.append('healthCheckId', healthCheckId.toString());
   }
+  if (conversationId) {
+    params.append('conversationId', conversationId.toString());
+  }
   
   const response = await apiClient.get<ConversationScriptResponse>(
     `${API_CONFIG.ENDPOINTS.CHATBOT.CONVERSATION_SCRIPT}?${params.toString()}`
+  );
+  return response.data;
+};
+
+/**
+ * 대화 히스토리 조회
+ */
+export const getConversationList = async (
+  petId: number,
+  conversationType: 'health_status' | 'care_management'
+): Promise<ConversationListResponse> => {
+  const params = new URLSearchParams({
+    petId: petId.toString(),
+    conversationType,
+  });
+  
+  const response = await apiClient.get<ConversationListResponse>(
+    `${API_CONFIG.ENDPOINTS.CHATBOT.CONVERSATION_LIST}?${params.toString()}`
+  );
+  return response.data;
+};
+
+/**
+ * 대화 보관함 조회
+ */
+export const getInboxList = async (
+  petId: number,
+  conversationType: 'health_status' | 'care_management'
+): Promise<InboxListResponse> => {
+  const params = new URLSearchParams({
+    petId: petId.toString(),
+    conversationType,
+  });
+  
+  const response = await apiClient.get<InboxListResponse>(
+    `${API_CONFIG.ENDPOINTS.CHATBOT.INBOX_LIST}?${params.toString()}`
+  );
+  return response.data;
+};
+
+export interface DeleteConversationResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * 대화 삭제
+ */
+export const deleteConversation = async (
+  conversationId: number
+): Promise<DeleteConversationResponse> => {
+  const response = await apiClient.delete<DeleteConversationResponse>(
+    API_CONFIG.ENDPOINTS.CHATBOT.DELETE_CONVERSATION(conversationId)
   );
   return response.data;
 };

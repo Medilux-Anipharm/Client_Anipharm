@@ -80,7 +80,9 @@ export const API_CONFIG = {
       HEALTH_ASSESS: '/chatbot/health/assess',
       CONVERSATION_END: '/chatbot/conversation/end',
       CONVERSATION_SCRIPT: '/chatbot/conversation/script',
-
+      CONVERSATION_LIST: '/chatbot/conversations',
+      INBOX_LIST: '/chatbot/inbox',
+      DELETE_CONVERSATION: (conversationId: number) => `/chatbot/conversations/${conversationId}`,
     }
   }
 };

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import LoginScreen from './src/screens/auth/LoginScreen';
-import SignUpScreen from './src/screens/auth/SignUpScreen';
+import { ActivityIndicator, View, StyleSheet, Alert } from 'react-native';
+import LoginScreen from './src/screens/Auth/LoginScreen';
+import SignUpScreen from './src/screens/Auth/SignUpScreen';
 import HomeScreen from './src/screens/home/HomeScreen';
 import PetProfileCreationScreen from './src/screens/pet/PetProfileCreationScreen';
 import PetSuccessScreen from './src/screens/pet/PetSuccessScreen';
@@ -11,8 +11,13 @@ import PetDetailScreen from './src/screens/pet/PetDetailScreen';
 import HealthCheckFormScreen from './src/screens/Health/HealthCheckFormScreen';
 import HealthChatScreen from './src/screens/Health/HealthChatScreen';
 import HealthResultScreen from './src/screens/Health/HealthResultScreen';
+import CareChatScreen from './src/screens/Care/CareChatScreen';
+import CareInboxScreen from './src/screens/Care/CareInboxScreen';
+import CareArchiveDetailScreen from './src/screens/Care/CareArchiveDetailScreen';
 import { User } from './src/types/auth';
 import { checkAuth } from './src/services/auth';
+import { startCareManagementChat } from './src/services/healthChatbot';
+import { getPets } from './src/services/pet';
 
 type Screen =
   | 'login'
@@ -24,7 +29,10 @@ type Screen =
   | 'petDetail'
   | 'healthCheckForm'
   | 'healthChat'
-  | 'healthResult';
+  | 'healthResult'
+  | 'careChat'
+  | 'careInbox'
+  | 'careArchiveDetail';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -32,6 +40,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
   const [healthCheckId, setHealthCheckId] = useState<number | null>(null);
+  const [careConversationId, setCareConversationId] = useState<number | null>(null);
+  const [homeInitialTab, setHomeInitialTab] = useState<'home' | 'chatbot' | 'community' | 'journal' | 'profile' | undefined>(undefined);
   const [healthAssessment, setHealthAssessment] = useState<{
     triage_level: 'BLUE' | 'GREEN' | 'AMBER' | 'RED';
     recommended_actions: string[];
@@ -199,6 +209,134 @@ export default function App() {
     handleHealthResultBack();
   };
 
+  // 케어 관리 상담 시작
+  const handleNavigateToCareChat = async (petId?: number) => {
+    console.log('[App] handleNavigateToCareChat 호출됨', { petId, selectedPetId });
+    
+    let targetPetId = petId || selectedPetId;
+    
+    // petId가 없으면 기본 반려동물 가져오기
+    if (!targetPetId) {
+      console.log('[App] petId가 없음, 기본 반려동물 조회 시작');
+      try {
+        const petsResponse = await getPets();
+        if (petsResponse.success && petsResponse.data && petsResponse.data.length > 0) {
+          const primaryPet = petsResponse.data.find((p) => p.isPrimary) || petsResponse.data[0];
+          targetPetId = Number(primaryPet.petId);
+          console.log('[App] 기본 반려동물 선택됨', { targetPetId, petName: primaryPet.name });
+        } else {
+          console.warn('[App] 등록된 반려동물이 없음');
+          Alert.alert('알림', '반려동물을 먼저 등록해주세요.');
+          return;
+        }
+      } catch (error: any) {
+        console.error('[App] 반려동물 목록 조회 실패:', error);
+        Alert.alert('오류', '반려동물 정보를 불러오는데 실패했습니다.');
+        return;
+      }
+    }
+
+    if (!targetPetId) {
+      console.warn('[App] targetPetId가 여전히 없음');
+      return;
+    }
+
+    console.log('[App] 케어 관리 상담 시작', { targetPetId });
+
+    try {
+      // 새 대화 시작
+      console.log('[App] startCareManagementChat API 호출 시작');
+      const response = await startCareManagementChat(targetPetId);
+      console.log('[App] startCareManagementChat 응답:', response);
+      
+      if (response.success) {
+        console.log('[App] 케어 관리 상담 시작 성공, CareChatScreen으로 이동');
+        setSelectedPetId(targetPetId);
+        setCareConversationId(null); // 새 대화는 conversationId가 없음
+        setCurrentScreen('careChat');
+      } else {
+        console.warn('[App] startCareManagementChat 응답 실패:', response.message);
+        Alert.alert('오류', response.message || '케어 관리 상담을 시작할 수 없습니다.');
+      }
+    } catch (error: any) {
+      console.error('[App] 케어 관리 상담 시작 실패:', error);
+      console.error('[App] 에러 상세:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      
+      // 에러가 발생해도 화면은 이동 (에러는 CareChatScreen에서 처리)
+      console.log('[App] 에러 발생했지만 CareChatScreen으로 이동');
+      setSelectedPetId(targetPetId);
+      setCareConversationId(null);
+      setCurrentScreen('careChat');
+    }
+  };
+
+  // 케어 관리 대화 화면에서 뒤로가기
+  const handleCareChatBack = () => {
+    console.log('[App] handleCareChatBack 호출됨');
+    setCareConversationId(null);
+    console.log('[App] homeInitialTab을 chatbot으로 설정');
+    setHomeInitialTab('chatbot'); // chatbot 탭 활성화
+    console.log('[App] currentScreen을 home으로 설정');
+    setCurrentScreen('home');
+    console.log('[App] BotHome(상담하기 화면)으로 이동 완료');
+  };
+
+  // 케어 관리 대화 화면에서 보관함으로 이동
+  const handleCareChatToInbox = () => {
+    setCareConversationId(null);
+    setCurrentScreen('careInbox');
+  };
+
+  // 케어 관리 보관함으로 이동
+  const handleNavigateToCareInbox = async () => {
+    // 기본 반려동물 가져오기
+    let targetPetId = selectedPetId;
+    
+    if (!targetPetId) {
+      try {
+        const petsResponse = await getPets();
+        if (petsResponse.success && petsResponse.data && petsResponse.data.length > 0) {
+          const primaryPet = petsResponse.data.find((p) => p.isPrimary) || petsResponse.data[0];
+          targetPetId = Number(primaryPet.petId);
+        } else {
+          Alert.alert('알림', '반려동물을 먼저 등록해주세요.');
+          return;
+        }
+      } catch (error: any) {
+        console.error('반려동물 목록 조회 실패:', error);
+        Alert.alert('오류', '반려동물 정보를 불러오는데 실패했습니다.');
+        return;
+      }
+    }
+
+    if (!targetPetId) {
+      return;
+    }
+
+    setSelectedPetId(targetPetId);
+    setCurrentScreen('careInbox');
+  };
+
+  // 케어 관리 보관함 화면에서 뒤로가기
+  const handleCareInboxBack = () => {
+    setCurrentScreen('home');
+  };
+
+  // 케어 관리 보관함에서 대화 상세 보기
+  const handleCareInboxToDetail = (conversationId: number) => {
+    setCareConversationId(conversationId);
+    setCurrentScreen('careArchiveDetail');
+  };
+
+  // 케어 관리 보관함 상세에서 뒤로가기
+  const handleCareArchiveDetailBack = () => {
+    setCurrentScreen('careInbox');
+  };
+
   // 로딩 중일 때 스플래시 화면 표시
   if (isLoading) {
     return (
@@ -261,12 +399,35 @@ export default function App() {
           onNavigateBack={handleHealthResultBack}
           onSaveReport={handleHealthResultSave}
         />
+      ) : currentScreen === 'careChat' && selectedPetId ? (
+        <CareChatScreen
+          petId={selectedPetId}
+          conversationId={careConversationId}
+          onNavigateBack={handleCareChatBack}
+          onNavigateToInbox={handleCareChatToInbox}
+        />
+      ) : currentScreen === 'careInbox' && selectedPetId ? (
+        <CareInboxScreen
+          petId={selectedPetId}
+          onNavigateBack={handleCareInboxBack}
+          onNavigateToDetail={handleCareInboxToDetail}
+        />
+      ) : currentScreen === 'careArchiveDetail' && selectedPetId && careConversationId ? (
+        <CareArchiveDetailScreen
+          petId={selectedPetId}
+          conversationId={careConversationId}
+          onNavigateBack={handleCareArchiveDetailBack}
+        />
       ) : (
         <HomeScreen
+          key={homeInitialTab || 'default'} // key를 추가하여 initialTab 변경 시 재렌더링 강제
           userData={userData}
           onLogout={handleLogout}
           onNavigateToPetProfile={handleNavigateToPetList}
           onNavigateToHealthCheck={handleNavigateToHealthCheckForm}
+          onNavigateToCareChat={handleNavigateToCareChat}
+          onNavigateToCareInbox={handleNavigateToCareInbox}
+          initialTab={homeInitialTab}
         />
       )}
       <StatusBar style="auto" />
