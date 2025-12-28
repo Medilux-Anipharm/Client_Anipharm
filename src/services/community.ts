@@ -72,6 +72,20 @@ export const createPost = async (
 };
 
 /**
+ * 게시글 작성 (이미지 포함)
+ */
+export const createPostWithImages = async (
+  formData: FormData
+): Promise<PostMutationResponse> => {
+  // FormData를 사용할 때는 Content-Type을 설정하지 않아야 브라우저가 자동으로 boundary를 설정합니다
+  const response = await apiClient.post<PostMutationResponse>(
+    API_CONFIG.ENDPOINTS.COMMUNITY.CREATE_POST,
+    formData
+  );
+  return response.data;
+};
+
+/**
  * 게시글 수정
  */
 export const updatePost = async (

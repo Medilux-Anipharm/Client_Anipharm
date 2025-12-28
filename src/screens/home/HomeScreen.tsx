@@ -111,9 +111,8 @@ const HomeScreen = ({
   } = useMapData()
 
   useEffect(()=>{
-    if(currentLocation){
-      loadPlaces(selectedCategory, currentLocation)
-    }
+    // currentLocation이 없어도 기본 위치로 조회 가능하도록 수정
+    loadPlaces(selectedCategory, currentLocation)
   }, [selectedCategory, currentLocation])
 
   // 검색 핸들러
@@ -1187,10 +1186,10 @@ const HomeScreen = ({
               <Ionicons name="map-outline" size={18} color="#FF8A3D" />
               <Text style={styles.actionButtonText}>지도에서 보기</Text>
             </TouchableOpacity>
-        <TouchableOpacity style={styles.reserveButton}>
-          <Text style={styles.reserveButtonText}>예약하기</Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity style={styles.reserveButton}>
+              <Text style={styles.reserveButtonText}>예약하기</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.infoCard}>

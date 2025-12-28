@@ -18,9 +18,12 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// expo-image-picker 설치 필요: npx expo install expo-image-picker
+import * as ImagePicker from 'expo-image-picker';
 import { BoardType, CreatePostRequest } from '../../types/community';
 import * as communityService from '../../services/community';
 import Button from '../../components/common/Button';
+import { API_CONFIG } from '../../config/api';
 
 interface PostWriteScreenProps {
   onNavigateBack: () => void;
@@ -42,36 +45,50 @@ const PostWriteScreen: React.FC<PostWriteScreenProps> = ({
   const [selectedBoardType, setSelectedBoardType] = useState<BoardType>(boardType);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [imageUris, setImageUris] = useState<string[]>([]); // 로컬 이미지 URI
   const [loading, setLoading] = useState(false);
 
   const isFreeBoard = selectedBoardType === 'free';
 
-  // 이미지 추가 (임시로 플레이스홀더 사용)
-  const handleAddImage = () => {
-    if (images.length >= 5) {
+  // 이미지 선택
+  const handleAddImage = async () => {
+    if (imageUris.length >= 5) {
       Alert.alert('알림', '이미지는 최대 5장까지 추가할 수 있습니다.');
       return;
     }
 
-    Alert.alert(
-      '이미지 추가',
-      '실제 구현에서는 이미지 선택기를 사용합니다.\n현재는 플레이스홀더 이미지를 추가합니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '추가',
-          onPress: () => {
-            setImages((prev) => [...prev, `https://via.placeholder.com/300x200?text=Image${prev.length + 1}`]);
-          },
-        },
-      ]
-    );
+    try {
+      // 권한 요청
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('알림', '이미지 접근 권한이 필요합니다.');
+        return;
+      }
+
+      // 이미지 선택
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newImageUri = asset.uri;
+        
+        // 로컬 URI 저장 (미리보기용, 게시글 작성 시 함께 업로드)
+        setImageUris((prev) => [...prev, newImageUri]);
+      }
+    } catch (error: any) {
+      console.error('이미지 선택 에러:', error);
+      Alert.alert('오류', '이미지를 선택하는 중 오류가 발생했습니다.');
+    }
   };
 
   // 이미지 제거
   const handleRemoveImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImageUris((prev) => prev.filter((_, i) => i !== index));
   };
 
   // 게시글 등록
@@ -99,33 +116,105 @@ const PostWriteScreen: React.FC<PostWriteScreenProps> = ({
 
     setLoading(true);
     try {
-      const postData: CreatePostRequest = {
-        boardType: selectedBoardType,
-        title: title.trim(),
-        content: content.trim(),
-        images: images.length > 0 ? images : undefined,
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        locationName: userLocation.locationName,
-      };
+      let response;
+      
+      // 이미지가 있으면 FormData로, 없으면 JSON으로 전송
+      if (imageUris.length > 0) {
+        // FormData로 이미지와 게시글 데이터 함께 전송
+        const formData = new FormData();
+        
+        // 게시글 데이터 추가
+        formData.append('boardType', selectedBoardType);
+        formData.append('title', title.trim());
+        formData.append('content', content.trim());
+        formData.append('latitude', userLocation.latitude.toString());
+        formData.append('longitude', userLocation.longitude.toString());
+        formData.append('locationName', userLocation.locationName);
 
-      const response = await communityService.createPost(postData);
+        // 이미지 추가 (웹/앱 구분)
+        for (let index = 0; index < imageUris.length; index++) {
+          const imageUri = imageUris[index];
+          let filename = imageUri.split('/').pop() || `image_${index}.jpg`;
+          
+          // 파일명에 확장자가 없으면 MIME 타입 기반으로 추가
+          if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
+            // MIME 타입 확인을 위해 이미지 로드 시도
+            try {
+              const response = await fetch(imageUri);
+              const blob = await response.blob();
+              const mimeType = blob.type || 'image/jpeg';
+              const ext = mimeType.split('/')[1] || 'jpg';
+              filename = `image_${index}.${ext}`;
+            } catch (e) {
+              filename = `image_${index}.jpg`;
+            }
+          }
+          
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+          
+          if (Platform.OS === 'web') {
+            // 웹 환경: File 객체로 변환
+            try {
+              const response = await fetch(imageUri);
+              const blob = await response.blob();
+              const file = new File([blob], filename, { type: blob.type || type });
+              formData.append('images', file);
+              console.log(`[웹] 이미지 ${index + 1} 추가됨: ${filename} (${blob.type})`);
+            } catch (error) {
+              console.error('[웹] 이미지 변환 실패:', error);
+              throw new Error('이미지 변환에 실패했습니다.');
+            }
+          } else {
+            // React Native 환경: uri, name, type 형식 사용
+            formData.append('images', {
+              uri: imageUri,
+              name: filename,
+              type: type,
+            } as any);
+            console.log(`[앱] 이미지 ${index + 1} 추가됨: ${filename}`);
+          }
+        }
 
-      if (response.success && response.data?.postId) {
-        Alert.alert('성공', '게시글이 등록되었습니다.', [
-          {
-            text: '확인',
-            onPress: () => onPostCreated(response.data!.postId),
-          },
-        ]);
+        response = await communityService.createPostWithImages(formData);
       } else {
+        // 이미지가 없으면 일반 JSON으로 전송
+        const postData: CreatePostRequest = {
+          boardType: selectedBoardType,
+          title: title.trim(),
+          content: content.trim(),
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          locationName: userLocation.locationName,
+        };
+        
+        response = await communityService.createPost(postData);
+      }
+
+      console.log('게시글 작성 응답:', response);
+      
+      if (response.success && response.data?.postId) {
+        // 폼 초기화
+        setTitle('');
+        setContent('');
+        setImageUris([]);
+        
+        // 바로 상세페이지로 이동 (Alert 없이)
+        onPostCreated(response.data.postId);
+      } else {
+        console.error('게시글 작성 실패:', response);
         Alert.alert('오류', response.message || '게시글 등록에 실패했습니다.');
       }
     } catch (error: any) {
       console.error('게시글 등록 에러:', error);
+      console.error('에러 상세:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       Alert.alert(
         '오류',
-        error.response?.data?.message || '게시글 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+        error.response?.data?.message || error.message || '게시글 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
       );
     } finally {
       setLoading(false);
@@ -230,12 +319,12 @@ const PostWriteScreen: React.FC<PostWriteScreenProps> = ({
             >
               <Ionicons name="camera-outline" size={32} color="#999" />
               <Text style={styles.addImageText}>이미지 추가</Text>
-              <Text style={styles.imageCount}>{images.length}/5</Text>
+              <Text style={styles.imageCount}>{imageUris.length}/5</Text>
             </TouchableOpacity>
 
-            {images.map((image, index) => (
+            {imageUris.map((imageUri, index) => (
               <View key={index} style={styles.imageItem}>
-                <Image source={{ uri: image }} style={styles.imagePreview} />
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
                 <TouchableOpacity
                   style={styles.removeImageButton}
                   onPress={() => handleRemoveImage(index)}
@@ -394,6 +483,17 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: '#fff',
     borderRadius: 12,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   footer: {
     paddingHorizontal: 20,

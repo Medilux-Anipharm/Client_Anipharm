@@ -47,7 +47,14 @@ const PostDetailScreen: React.FC<PostDetailScreenProps> = ({
       const response = await communityService.getPostDetail(postId);
 
       if (response.success) {
-        setPost(response.data);
+        // 이미지 배열을 문자열 배열로 변환 (서버에서 객체로 오는 경우 대비)
+        const postData = {
+          ...response.data,
+          images: response.data.images?.map((img: any) => 
+            typeof img === 'string' ? img : img.imageUrl
+          ) || []
+        };
+        setPost(postData);
         setIsLiked(response.data.isLiked || false);
         setLikeCount(response.data.likeCount);
       } else {
@@ -224,14 +231,21 @@ const PostDetailScreen: React.FC<PostDetailScreenProps> = ({
           {/* 이미지들 */}
           {post.images && post.images.length > 0 && (
             <View style={styles.imagesContainer}>
-              {post.images.map((image, index) => (
-                <Image
-                  key={index}
-                  source={{ uri: image }}
-                  style={styles.postImage}
-                  resizeMode="cover"
-                />
-              ))}
+              {post.images.map((image, index) => {
+                // image가 객체인 경우 imageUrl 사용, 문자열인 경우 그대로 사용
+                const imageUrl = typeof image === 'string' ? image : image.imageUrl;
+                return (
+                  <Image
+                    key={index}
+                    source={{ uri: imageUrl }}
+                    style={styles.postImage}
+                    resizeMode="contain"
+                    onError={(error) => {
+                      console.error('이미지 로드 실패:', imageUrl, error);
+                    }}
+                  />
+                );
+              })}
             </View>
           )}
 
@@ -378,10 +392,13 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    height: 250,
+    maxWidth: '100%',
+    height: 200,
+    maxHeight: 200,
     borderRadius: 12,
     marginBottom: 12,
     backgroundColor: '#F5F5F5',
+    resizeMode: 'contain',
   },
   statsContainer: {
     flexDirection: 'row',

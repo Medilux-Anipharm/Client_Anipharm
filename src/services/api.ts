@@ -24,6 +24,15 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // FormData인 경우 Content-Type을 제거하여 브라우저가 자동으로 boundary 설정하도록 함
+    // React Native와 웹 모두에서 FormData 감지
+    if (config.data && (config.data instanceof FormData || (typeof FormData !== 'undefined' && config.data.constructor?.name === 'FormData'))) {
+      if (config.headers) {
+        delete config.headers['Content-Type'];
+      }
+    }
+    
     return config;
   },
   (error) => {
