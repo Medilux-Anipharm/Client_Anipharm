@@ -14,10 +14,15 @@ import HealthResultScreen from './src/screens/Health/HealthResultScreen';
 import CareChatScreen from './src/screens/Care/CareChatScreen';
 import CareInboxScreen from './src/screens/Care/CareInboxScreen';
 import CareArchiveDetailScreen from './src/screens/Care/CareArchiveDetailScreen';
+import CommunityScreen from './src/screens/Community/CommunityScreen';
+import PostWriteScreen from './src/screens/Community/PostWriteScreen';
+import PostDetailScreen from './src/screens/Community/PostDetailScreen';
 import { User } from './src/types/auth';
+import { BoardType } from './src/types/community';
 import { checkAuth } from './src/services/auth';
 import { startCareManagementChat } from './src/services/healthChatbot';
 import { getPets } from './src/services/pet';
+import eventEmitter from './src/utils/eventEmitter';
 
 type Screen =
   | 'login'
@@ -32,7 +37,10 @@ type Screen =
   | 'healthResult'
   | 'careChat'
   | 'careInbox'
-  | 'careArchiveDetail';
+  | 'careArchiveDetail'
+  | 'community'
+  | 'postWrite'
+  | 'postDetail';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -46,6 +54,13 @@ export default function App() {
     triage_level: 'BLUE' | 'GREEN' | 'AMBER' | 'RED';
     recommended_actions: string[];
     health_check_summary: string;
+  } | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [postBoardType, setPostBoardType] = useState<BoardType>('free');
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    locationName: string;
   } | null>(null);
 
   const handleLoginSuccess = (user: User) => {
@@ -78,33 +93,18 @@ export default function App() {
 
     // 로그아웃 이벤트 리스너 (401 에러 시 자동 로그아웃)
     const handleLogoutEvent = () => {
+      console.log('로그아웃 이벤트 수신: 로그인 화면으로 이동');
       setUserData(null);
       setCurrentScreen('login');
     };
 
-    // React Native Web 환경에서만 window 이벤트 사용
-    // window.addEventListener가 함수인지 확인
-    if (
-      typeof window !== 'undefined' &&
-      window.addEventListener &&
-      typeof window.addEventListener === 'function' &&
-      window.removeEventListener &&
-      typeof window.removeEventListener === 'function'
-    ) {
-      try {
-        window.addEventListener('auth:logout', handleLogoutEvent);
-        return () => {
-          try {
-            window.removeEventListener('auth:logout', handleLogoutEvent);
-          } catch (e) {
-            // 무시
-          }
-        };
-      } catch (e) {
-        // window.addEventListener가 작동하지 않는 환경 (React Native)
-        console.log('window 이벤트 리스너를 사용할 수 없습니다 (React Native 환경)');
-      }
-    }
+    // EventEmitter를 사용한 크로스 플랫폼 이벤트 리스너
+    eventEmitter.on('auth:logout', handleLogoutEvent);
+
+    // 클린업 함수
+    return () => {
+      eventEmitter.off('auth:logout', handleLogoutEvent);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -337,6 +337,57 @@ export default function App() {
     setCurrentScreen('careInbox');
   };
 
+  // 커뮤니티 화면으로 이동
+  const handleNavigateToCommunity = () => {
+    setCurrentScreen('community');
+  };
+
+  // 커뮤니티에서 뒤로가기
+  const handleCommunityBack = () => {
+    setHomeInitialTab('community');
+    setCurrentScreen('home');
+  };
+
+  // 게시글 작성 화면으로 이동
+  const handleNavigateToPostWrite = (boardType: BoardType) => {
+    setPostBoardType(boardType);
+    setCurrentScreen('postWrite');
+  };
+
+  // 게시글 작성 화면에서 뒤로가기
+  const handlePostWriteBack = () => {
+    setCurrentScreen('community');
+  };
+
+  // 게시글 작성 완료 후 상세 화면으로 이동
+  const handlePostCreated = (postId: number) => {
+    setSelectedPostId(postId);
+    setCurrentScreen('postDetail');
+  };
+
+  // 게시글 상세 화면으로 이동
+  const handleNavigateToPostDetail = (postId: number) => {
+    setSelectedPostId(postId);
+    setCurrentScreen('postDetail');
+  };
+
+  // 게시글 상세 화면에서 뒤로가기
+  const handlePostDetailBack = () => {
+    setSelectedPostId(null);
+    setCurrentScreen('community');
+  };
+
+  // 인증이 필요한 화면인지 확인
+  const requiresAuth = currentScreen !== 'login' && currentScreen !== 'signup';
+
+  // 인증이 필요한데 userData가 없으면 로그인 화면으로 리다이렉트
+  useEffect(() => {
+    if (requiresAuth && !userData && !isLoading) {
+      console.log('인증이 필요하지만 사용자 정보가 없음. 로그인 화면으로 이동');
+      setCurrentScreen('login');
+    }
+  }, [requiresAuth, userData, isLoading]);
+
   // 로딩 중일 때 스플래시 화면 표시
   if (isLoading) {
     return (
@@ -356,6 +407,12 @@ export default function App() {
       ) : currentScreen === 'signup' ? (
         <SignUpScreen
           onNavigateToLogin={() => setCurrentScreen('login')}
+        />
+      ) : !userData ? (
+        // userData가 없으면 로그인 화면으로 (이중 보안)
+        <LoginScreen
+          onNavigateToSignUp={() => setCurrentScreen('signup')}
+          onLoginSuccess={handleLoginSuccess}
         />
       ) : currentScreen === 'petList' ? (
         <PetListScreen
@@ -418,6 +475,30 @@ export default function App() {
           conversationId={careConversationId}
           onNavigateBack={handleCareArchiveDetailBack}
         />
+      ) : currentScreen === 'community' ? (
+        <CommunityScreen
+          onNavigateToPostDetail={handleNavigateToPostDetail}
+          onNavigateToPostWrite={handleNavigateToPostWrite}
+          userData={userData || undefined}
+          userLocation={userLocation || undefined}
+        />
+      ) : currentScreen === 'postWrite' ? (
+        <PostWriteScreen
+          onNavigateBack={handlePostWriteBack}
+          onPostCreated={handlePostCreated}
+          boardType={postBoardType}
+          userLocation={userLocation || {
+            latitude: 37.5665,
+            longitude: 126.978,
+            locationName: '서울시청'
+          }}
+        />
+      ) : currentScreen === 'postDetail' && selectedPostId ? (
+        <PostDetailScreen
+          postId={selectedPostId}
+          onNavigateBack={handlePostDetailBack}
+          userData={userData || undefined}
+        />
       ) : (
         <HomeScreen
           key={homeInitialTab || 'default'} // key를 추가하여 initialTab 변경 시 재렌더링 강제
@@ -427,6 +508,9 @@ export default function App() {
           onNavigateToHealthCheck={handleNavigateToHealthCheckForm}
           onNavigateToCareChat={handleNavigateToCareChat}
           onNavigateToCareInbox={handleNavigateToCareInbox}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToPostDetail={handleNavigateToPostDetail}
+          onNavigateToPostWrite={handleNavigateToPostWrite}
           initialTab={homeInitialTab}
         />
       )}

@@ -31,8 +31,10 @@ import { VeterinaryHospital } from '../../types/hospital';
 import { VeterinaryPharmacy } from '../../types/pharmacy';
 import { NAVER_MAP_CLIENT_ID } from '../../config/api';
 import ChatbotScreen from '../chatbot/ChatbotScreen';
+import CommunityScreen from '../Community/CommunityScreen';
 import { useLocation } from '../../hooks/useLocation';
 import { useMapData } from '../../hooks/useMapData';
+import { BoardType } from '../../types/community';
 
 type TabType = 'home' | 'community' | 'chatbot' | 'journal' | 'profile';
 
@@ -43,6 +45,9 @@ interface HomeScreenProps {
   onNavigateToHealthCheck?: (petId?: number) => void;
   onNavigateToCareChat?: (petId?: number) => void;
   onNavigateToCareInbox?: () => void;
+  onNavigateToCommunity?: () => void;
+  onNavigateToPostDetail?: (postId: number) => void;
+  onNavigateToPostWrite?: (boardType: BoardType) => void;
   initialTab?: TabType;
 }
 
@@ -56,6 +61,9 @@ const HomeScreen = ({
   onNavigateToHealthCheck,
   onNavigateToCareChat,
   onNavigateToCareInbox,
+  onNavigateToCommunity,
+  onNavigateToPostDetail,
+  onNavigateToPostWrite,
   initialTab,
 }: HomeScreenProps) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'home');
@@ -591,8 +599,29 @@ const HomeScreen = ({
       // 프로필 탭을 누르면 반려동물 프로필 등록 화면으로 이동
       onNavigateToPetProfile();
     } else {
+      // 커뮤니티 탭도 HomeScreen 내에서 표시
       setActiveTab(tab);
     }
+  };
+
+  // 로그아웃 핸들러
+  const handleLogoutPress = () => {
+    Alert.alert(
+      '로그아웃',
+      '로그아웃 하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: () => {
+            if (onLogout) {
+              onLogout();
+            }
+          },
+        },
+      ]
+    );
   };
 
   // 홈 탭 컨텐츠 렌더링
@@ -601,6 +630,9 @@ const HomeScreen = ({
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Anipharm</Text>
+        <TouchableOpacity onPress={handleLogoutPress} style={styles.logoutButton} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* 검색 바 */}
@@ -1231,7 +1263,26 @@ const HomeScreen = ({
       {/* 컨텐츠 영역 */}
       <View style={styles.content}>
         {activeTab === 'home' && renderHomeContent()}
-        {activeTab === 'community' && renderOtherTabContent('커뮤니티')}
+        {activeTab === 'community' && (
+          <CommunityScreen
+            onNavigateToPostDetail={(postId) => {
+              if (onNavigateToPostDetail) {
+                onNavigateToPostDetail(postId);
+              }
+            }}
+            onNavigateToPostWrite={(boardType) => {
+              if (onNavigateToPostWrite) {
+                onNavigateToPostWrite(boardType);
+              }
+            }}
+            userData={userData || undefined}
+            userLocation={currentLocation ? {
+              latitude: currentLocation.latitude,
+              longitude: currentLocation.longitude,
+              locationName: '서울시청'
+            } : undefined}
+          />
+        )}
         {activeTab === 'chatbot' && (
           <ChatbotScreen
             onSelectHealthConsult={() => onNavigateToHealthCheck?.()}
@@ -1362,11 +1413,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 16 : 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  logoutButton: {
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
   },
   searchContainer: {
     backgroundColor: '#FF8A3D',

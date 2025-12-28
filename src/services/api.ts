@@ -6,6 +6,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '../config/api';
 import { getToken, clearAuthData } from '../utils/storage';
+import eventEmitter from '../utils/eventEmitter';
 
 // Axios 인스턴스 생성
 const apiClient: AxiosInstance = axios.create({
@@ -45,16 +46,8 @@ apiClient.interceptors.response.use(
           // 인증 실패 - 토큰 삭제 및 로그아웃 처리
           console.log('인증 실패: 로그인이 필요합니다.');
           await clearAuthData();
-          // 로그아웃 이벤트 발생 (App.tsx에서 처리)
-          // React Native Web 환경에서만 window 이벤트 사용
-          if (typeof window !== 'undefined' && window.dispatchEvent && typeof Event !== 'undefined') {
-            try {
-              window.dispatchEvent(new Event('auth:logout'));
-            } catch (e) {
-              // React Native에서는 Event가 없을 수 있음
-              console.log('로그아웃 이벤트 발생 실패 (React Native 환경일 수 있음)');
-            }
-          }
+          // 크로스 플랫폼 로그아웃 이벤트 발생 (App.tsx에서 처리)
+          eventEmitter.emit('auth:logout');
           break;
         case 403:
           // 권한 없음

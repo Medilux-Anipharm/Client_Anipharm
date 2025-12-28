@@ -83,6 +83,24 @@ export const API_CONFIG = {
       CONVERSATION_LIST: '/chatbot/conversations',
       INBOX_LIST: '/chatbot/inbox',
       DELETE_CONVERSATION: (conversationId: number) => `/chatbot/conversations/${conversationId}`,
+    },
+    // Community 관련 엔드포인트
+    COMMUNITY: {
+      // 게시글 목록 조회
+      POST_LIST: (boardType: string) => `/community/${boardType}/posts`,
+      POST_LIST_BY_LOCATION: (boardType: string) => `/community/${boardType}/posts/location`,
+      // 게시글 CRUD
+      CREATE_POST: '/community/posts',
+      POST_DETAIL: (postId: number) => `/community/posts/${postId}`,
+      UPDATE_POST: (postId: number) => `/community/posts/${postId}`,
+      DELETE_POST: (postId: number) => `/community/posts/${postId}`,
+      // 댓글
+      CREATE_COMMENT: (postId: number) => `/community/posts/${postId}/comments`,
+      DELETE_COMMENT: (commentId: number) => `/community/comments/${commentId}`,
+      MY_COMMENTS: '/community/my/comments',
+      // 좋아요
+      ADD_LIKE: (postId: number) => `/community/posts/${postId}/like`,
+      REMOVE_LIKE: (postId: number) => `/community/posts/${postId}/like`,
     }
   }
 };
