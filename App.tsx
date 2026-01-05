@@ -17,8 +17,11 @@ import CareArchiveDetailScreen from './src/screens/Care/CareArchiveDetailScreen'
 import CommunityScreen from './src/screens/Community/CommunityScreen';
 import PostWriteScreen from './src/screens/Community/PostWriteScreen';
 import PostDetailScreen from './src/screens/Community/PostDetailScreen';
+import PickupProductListScreen from './src/screens/Pickup/PickupProductListScreen';
+import PickupPharmacySelectScreen from './src/screens/Pickup/PickupPharmacySelectScreen';
 import { User } from './src/types/auth';
 import { BoardType } from './src/types/community';
+import { PickupProduct } from './src/types/pickup';
 import { checkAuth } from './src/services/auth';
 import { startCareManagementChat } from './src/services/healthChatbot';
 import { getPets } from './src/services/pet';
@@ -40,7 +43,9 @@ type Screen =
   | 'careArchiveDetail'
   | 'community'
   | 'postWrite'
-  | 'postDetail';
+  | 'postDetail'
+  | 'pickupProductList'
+  | 'pickupPharmacySelect';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -62,6 +67,11 @@ export default function App() {
     longitude: number;
     locationName: string;
   } | null>(null);
+  const [selectedPickupCategoryId, setSelectedPickupCategoryId] = useState<string | null>(null);
+  const [selectedPickupProducts, setSelectedPickupProducts] = useState<Array<{
+    product: PickupProduct;
+    quantity: number;
+  }>>([]);
 
   const handleLoginSuccess = (user: User) => {
     setUserData(user);
@@ -377,6 +387,48 @@ export default function App() {
     setCurrentScreen('community');
   };
 
+  // 픽업 카테고리 선택 -> 약품 리스트로 이동
+  const handleNavigateToPickupProductList = (categoryId: string) => {
+    setSelectedPickupCategoryId(categoryId);
+    setCurrentScreen('pickupProductList');
+  };
+
+  // 픽업 약품 리스트에서 뒤로가기
+  const handlePickupProductListBack = () => {
+    setCurrentScreen('home');
+    setHomeInitialTab('journal');
+  };
+
+  // 픽업 약국 선택으로 이동
+  const handleNavigateToPickupPharmacySelect = (products: Array<{product: PickupProduct; quantity: number}>) => {
+    setSelectedPickupProducts(products);
+    setCurrentScreen('pickupPharmacySelect');
+  };
+
+  // 픽업 약국 선택에서 뒤로가기
+  const handlePickupPharmacySelectBack = () => {
+    setCurrentScreen('pickupProductList');
+  };
+
+  // 픽업 예약 완료
+  const handleConfirmPickup = (pharmacyId: string) => {
+    Alert.alert(
+      '픽업 예약 완료',
+      '약국에서 픽업 준비가 완료되면 알림을 보내드립니다.',
+      [
+        {
+          text: '확인',
+          onPress: () => {
+            setSelectedPickupProducts([]);
+            setSelectedPickupCategoryId(null);
+            setCurrentScreen('home');
+            setHomeInitialTab('journal');
+          },
+        },
+      ]
+    );
+  };
+
   // 인증이 필요한 화면인지 확인
   const requiresAuth = currentScreen !== 'login' && currentScreen !== 'signup';
 
@@ -499,6 +551,18 @@ export default function App() {
           onNavigateBack={handlePostDetailBack}
           userData={userData || undefined}
         />
+      ) : currentScreen === 'pickupProductList' && selectedPickupCategoryId ? (
+        <PickupProductListScreen
+          categoryId={selectedPickupCategoryId}
+          onNavigateBack={handlePickupProductListBack}
+          onNavigateToPharmacySelect={handleNavigateToPickupPharmacySelect}
+        />
+      ) : currentScreen === 'pickupPharmacySelect' ? (
+        <PickupPharmacySelectScreen
+          selectedProducts={selectedPickupProducts}
+          onNavigateBack={handlePickupPharmacySelectBack}
+          onConfirmPickup={handleConfirmPickup}
+        />
       ) : (
         <HomeScreen
           key={homeInitialTab || 'default'} // key를 추가하여 initialTab 변경 시 재렌더링 강제
@@ -511,6 +575,7 @@ export default function App() {
           onNavigateToCommunity={handleNavigateToCommunity}
           onNavigateToPostDetail={handleNavigateToPostDetail}
           onNavigateToPostWrite={handleNavigateToPostWrite}
+          onNavigateToPickupCategory={handleNavigateToPickupProductList}
           initialTab={homeInitialTab}
         />
       )}

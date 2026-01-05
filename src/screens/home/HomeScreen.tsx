@@ -32,6 +32,7 @@ import { VeterinaryPharmacy } from '../../types/pharmacy';
 import { NAVER_MAP_CLIENT_ID } from '../../config/api';
 import ChatbotScreen from '../chatbot/ChatbotScreen';
 import CommunityScreen from '../Community/CommunityScreen';
+import PickupScreen from '../Pickup/PickupScreen';
 import { useLocation } from '../../hooks/useLocation';
 import { useMapData } from '../../hooks/useMapData';
 import { BoardType } from '../../types/community';
@@ -48,6 +49,7 @@ interface HomeScreenProps {
   onNavigateToCommunity?: () => void;
   onNavigateToPostDetail?: (postId: number) => void;
   onNavigateToPostWrite?: (boardType: BoardType) => void;
+  onNavigateToPickupCategory?: (categoryId: string) => void;
   initialTab?: TabType;
 }
 
@@ -64,6 +66,7 @@ const HomeScreen = ({
   onNavigateToCommunity,
   onNavigateToPostDetail,
   onNavigateToPostWrite,
+  onNavigateToPickupCategory,
   initialTab,
 }: HomeScreenProps) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'home');
@@ -1306,7 +1309,16 @@ const HomeScreen = ({
             }}
           />
         )}
-        {activeTab === 'journal' && renderOtherTabContent('일지')}
+        {activeTab === 'journal' && (
+          <PickupScreen
+            onNavigateToCategoryDetail={(categoryId) => {
+              console.log('[HomeScreen] 픽업 카테고리 선택:', categoryId);
+              if (onNavigateToPickupCategory) {
+                onNavigateToPickupCategory(categoryId);
+              }
+            }}
+          />
+        )}
       </View>
 
       {/* 하단 네비게이션 바 */}
@@ -1375,7 +1387,7 @@ const HomeScreen = ({
             styles.navText,
             activeTab === 'journal' && styles.navTextActive
           ]}>
-            일지
+            픽업
           </Text>
         </TouchableOpacity>
 
