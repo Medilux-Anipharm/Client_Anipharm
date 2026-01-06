@@ -17,8 +17,13 @@ import CareArchiveDetailScreen from './src/screens/Care/CareArchiveDetailScreen'
 import CommunityScreen from './src/screens/Community/CommunityScreen';
 import PostWriteScreen from './src/screens/Community/PostWriteScreen';
 import PostDetailScreen from './src/screens/Community/PostDetailScreen';
+import PlaceDetailScreen from './src/screens/map/PlaceDetailScreen';
+import ReviewWriteScreen from './src/screens/review/ReviewWriteScreen';
+import ReviewDetailScreen from './src/screens/review/ReviewDetailScreen';
 import { User } from './src/types/auth';
 import { BoardType } from './src/types/community';
+import { VeterinaryHospital } from './src/types/hospital';
+import { VeterinaryPharmacy } from './src/types/pharmacy';
 import { checkAuth } from './src/services/auth';
 import { startCareManagementChat } from './src/services/healthChatbot';
 import { getPets } from './src/services/pet';
@@ -40,7 +45,11 @@ type Screen =
   | 'careArchiveDetail'
   | 'community'
   | 'postWrite'
-  | 'postDetail';
+  | 'postDetail'
+  | 'placeDetail'
+  | 'reviewWrite'
+  | 'reviewDetail'
+  | 'reviewEdit';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -62,6 +71,17 @@ export default function App() {
     longitude: number;
     locationName: string;
   } | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<{
+    type: 'pharmacy' | 'hospital';
+    place: VeterinaryPharmacy | VeterinaryHospital;
+  } | null>(null);
+  const [reviewWriteParams, setReviewWriteParams] = useState<{
+    type: 'pharmacy' | 'hospital';
+    placeId: number;
+    placeName: string;
+    reviewId?: number; // 수정 모드일 때
+  } | null>(null);
+  const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
 
   const handleLoginSuccess = (user: User) => {
     setUserData(user);
@@ -377,6 +397,85 @@ export default function App() {
     setCurrentScreen('community');
   };
 
+  // 약국/병원 상세 화면으로 이동
+  const handleNavigateToPlaceDetail = (
+    type: 'pharmacy' | 'hospital',
+    place: VeterinaryPharmacy | VeterinaryHospital
+  ) => {
+    setSelectedPlace({ type, place });
+    setCurrentScreen('placeDetail');
+  };
+
+  // 약국/병원 상세 화면에서 뒤로가기
+  const handlePlaceDetailBack = () => {
+    setSelectedPlace(null);
+    setCurrentScreen('home');
+  };
+
+  // 리뷰 작성 화면으로 이동
+  const handleNavigateToReviewWrite = (
+    type: 'pharmacy' | 'hospital',
+    placeId: number,
+    placeName: string
+  ) => {
+    setReviewWriteParams({ type, placeId, placeName });
+    setCurrentScreen('reviewWrite');
+  };
+
+  // 리뷰 작성 화면에서 뒤로가기
+  const handleReviewWriteBack = () => {
+    setReviewWriteParams(null);
+    setCurrentScreen('placeDetail');
+  };
+
+  // 리뷰 상세 화면으로 이동
+  const handleNavigateToReviewDetail = (reviewId: number) => {
+    setSelectedReviewId(reviewId);
+    setCurrentScreen('reviewDetail');
+  };
+
+  // 리뷰 상세 화면에서 뒤로가기
+  const handleReviewDetailBack = () => {
+    setSelectedReviewId(null);
+    setCurrentScreen('placeDetail');
+  };
+
+  // 리뷰 수정 화면으로 이동
+  const handleNavigateToReviewEdit = (reviewId: number) => {
+    if (selectedPlace && reviewWriteParams) {
+      setReviewWriteParams({
+        ...reviewWriteParams,
+        reviewId,
+      });
+      setCurrentScreen('reviewEdit');
+    }
+  };
+
+  // 리뷰 수정 화면에서 뒤로가기
+  const handleReviewEditBack = () => {
+    setReviewWriteParams((prev) => {
+      if (prev) {
+        const { reviewId, ...rest } = prev;
+        return rest;
+      }
+      return null;
+    });
+    setCurrentScreen('reviewDetail');
+  };
+
+  // 리뷰 삭제 후 처리
+  const handleReviewDeleted = () => {
+    setSelectedReviewId(null);
+    setCurrentScreen('placeDetail');
+  };
+
+  // 리뷰 작성 완료 후 처리
+  const handleReviewCreated = (reviewId?: number) => {
+    // PlaceDetailScreen에서 리뷰 탭 활성화 및 새로고침을 위해
+    // selectedPlace를 유지한 채로 화면을 다시 렌더링
+    // (PlaceDetailScreen 내부에서 처리)
+  };
+
   // 인증이 필요한 화면인지 확인
   const requiresAuth = currentScreen !== 'login' && currentScreen !== 'signup';
 
@@ -499,6 +598,40 @@ export default function App() {
           onNavigateBack={handlePostDetailBack}
           userData={userData || undefined}
         />
+      ) : currentScreen === 'placeDetail' && selectedPlace ? (
+        <PlaceDetailScreen
+          type={selectedPlace.type}
+          place={selectedPlace.place}
+          onNavigateBack={handlePlaceDetailBack}
+          onNavigateToReviewWrite={handleNavigateToReviewWrite}
+          onNavigateToReviewDetail={handleNavigateToReviewDetail}
+          onReviewCreated={handleReviewCreated}
+        />
+      ) : currentScreen === 'reviewWrite' && reviewWriteParams ? (
+        <ReviewWriteScreen
+          type={reviewWriteParams.type}
+          placeId={reviewWriteParams.placeId}
+          placeName={reviewWriteParams.placeName}
+          onNavigateBack={handleReviewWriteBack}
+          onReviewCreated={handleReviewCreated}
+        />
+      ) : currentScreen === 'reviewEdit' && reviewWriteParams && reviewWriteParams.reviewId ? (
+        <ReviewWriteScreen
+          type={reviewWriteParams.type}
+          placeId={reviewWriteParams.placeId}
+          placeName={reviewWriteParams.placeName}
+          reviewId={reviewWriteParams.reviewId}
+          onNavigateBack={handleReviewEditBack}
+          onReviewCreated={handleReviewCreated}
+        />
+      ) : currentScreen === 'reviewDetail' && selectedReviewId ? (
+        <ReviewDetailScreen
+          reviewId={selectedReviewId}
+          onNavigateBack={handleReviewDetailBack}
+          onNavigateToEdit={handleNavigateToReviewEdit}
+          onReviewDeleted={handleReviewDeleted}
+          userData={userData || undefined}
+        />
       ) : (
         <HomeScreen
           key={homeInitialTab || 'default'} // key를 추가하여 initialTab 변경 시 재렌더링 강제
@@ -511,6 +644,7 @@ export default function App() {
           onNavigateToCommunity={handleNavigateToCommunity}
           onNavigateToPostDetail={handleNavigateToPostDetail}
           onNavigateToPostWrite={handleNavigateToPostWrite}
+          onNavigateToPlaceDetail={handleNavigateToPlaceDetail}
           initialTab={homeInitialTab}
         />
       )}

@@ -48,6 +48,7 @@ interface HomeScreenProps {
   onNavigateToCommunity?: () => void;
   onNavigateToPostDetail?: (postId: number) => void;
   onNavigateToPostWrite?: (boardType: BoardType) => void;
+  onNavigateToPlaceDetail?: (type: 'pharmacy' | 'hospital', place: VeterinaryPharmacy | VeterinaryHospital) => void;
   initialTab?: TabType;
 }
 
@@ -64,6 +65,7 @@ const HomeScreen = ({
   onNavigateToCommunity,
   onNavigateToPostDetail,
   onNavigateToPostWrite,
+  onNavigateToPlaceDetail,
   initialTab,
 }: HomeScreenProps) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'home');
@@ -1082,8 +1084,15 @@ const HomeScreen = ({
               <Ionicons name="map-outline" size={18} color="#FF8A3D" />
               <Text style={styles.actionButtonText}>지도에서 보기</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.reserveButton}>
-              <Text style={styles.reserveButtonText}>예약하기</Text>
+            <TouchableOpacity
+              style={styles.detailButton}
+              onPress={() => {
+                if (onNavigateToPlaceDetail) {
+                  onNavigateToPlaceDetail('pharmacy', selectedPharmacy);
+                }
+              }}
+            >
+              <Text style={styles.detailButtonText}>상세보기</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1139,8 +1148,15 @@ const HomeScreen = ({
               <Ionicons name="map-outline" size={18} color="#FF8A3D" />
               <Text style={styles.actionButtonText}>지도에서 보기</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.reserveButton}>
-              <Text style={styles.reserveButtonText}>예약하기</Text>
+            <TouchableOpacity
+              style={styles.detailButton}
+              onPress={() => {
+                if (onNavigateToPlaceDetail) {
+                  onNavigateToPlaceDetail('hospital', selectedHospital);
+                }
+              }}
+            >
+              <Text style={styles.detailButtonText}>상세보기</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1650,6 +1666,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reserveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  detailButton: {
+    flex: 1,
+    backgroundColor: '#FF8A3D',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  detailButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
