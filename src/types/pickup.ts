@@ -34,3 +34,26 @@ export type PickupCategoryType =
   | 'eye_care'            // 눈 관리·안구 세정
   | 'wound_care'          // 상처·피부 세정·소독
   | 'nutrition_supplement'; // 영양·면역·관절 보조
+
+// 픽업 상태
+export type PickupStatus = 'pending' | 'ready' | 'completed' | 'cancelled';
+
+// 픽업 요청 내역
+export interface PickupRequest {
+  id: string;
+  status: PickupStatus;
+  requestDate: string;
+  pharmacy: {
+    id: string;
+    name: string;
+    phone: string;
+    address: string;
+  };
+  products: Array<{
+    name: string;
+    quantity: number;
+  }>;
+  estimatedPickupDate?: string;
+  completedDate?: string;
+  totalQuantity: number;
+}

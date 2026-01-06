@@ -20,10 +20,12 @@ import { pickupCategories } from '../../data/pickupCategories';
 
 interface PickupScreenProps {
   onNavigateToCategoryDetail?: (categoryId: string) => void;
+  onNavigateToHistory?: () => void;
 }
 
 const PickupScreen: React.FC<PickupScreenProps> = ({
   onNavigateToCategoryDetail,
+  onNavigateToHistory,
 }) => {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -71,8 +73,18 @@ const PickupScreen: React.FC<PickupScreenProps> = ({
     <SafeAreaView style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>픽업</Text>
-        <Text style={styles.headerSubtitle}>필요한 의약품을 선택하세요</Text>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>픽업</Text>
+          <Text style={styles.headerSubtitle}>필요한 의약품을 선택하세요</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={onNavigateToHistory}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="time-outline" size={20} color="#FF8A3D" />
+          <Text style={styles.historyButtonText}>히스토리</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -172,12 +184,18 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 28,
@@ -188,6 +206,21 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: '#666',
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5ED',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 12,
+    gap: 4,
+  },
+  historyButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF8A3D',
   },
   content: {
     flex: 1,

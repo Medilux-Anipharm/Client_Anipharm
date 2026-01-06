@@ -18,7 +18,10 @@ import CommunityScreen from './src/screens/Community/CommunityScreen';
 import PostWriteScreen from './src/screens/Community/PostWriteScreen';
 import PostDetailScreen from './src/screens/Community/PostDetailScreen';
 import PickupProductListScreen from './src/screens/Pickup/PickupProductListScreen';
-import PickupPharmacySelectScreen from './src/screens/Pickup/PickupPharmacySelectScreen';
+import PickupPharmacySelectScreen, { DummyPharmacy } from './src/screens/Pickup/PickupPharmacySelectScreen';
+import PickupRequestConfirmScreen from './src/screens/Pickup/PickupRequestConfirmScreen';
+import PickupStatusScreen from './src/screens/Pickup/PickupStatusScreen';
+import PickupHistoryScreen from './src/screens/Pickup/PickupHistoryScreen';
 import { User } from './src/types/auth';
 import { BoardType } from './src/types/community';
 import { PickupProduct } from './src/types/pickup';
@@ -45,7 +48,11 @@ type Screen =
   | 'postWrite'
   | 'postDetail'
   | 'pickupProductList'
-  | 'pickupPharmacySelect';
+  | 'pickupPharmacySelect'
+  | 'pickupRequestConfirm'
+  | 'pickupStatus'
+  | 'pickupHistory'
+  | 'pickupDetail';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -72,6 +79,8 @@ export default function App() {
     product: PickupProduct;
     quantity: number;
   }>>([]);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<DummyPharmacy | null>(null);
+  const [selectedPickupRequestId, setSelectedPickupRequestId] = useState<string | null>(null);
 
   const handleLoginSuccess = (user: User) => {
     setUserData(user);
@@ -410,7 +419,54 @@ export default function App() {
     setCurrentScreen('pickupProductList');
   };
 
-  // 픽업 예약 완료
+  // 픽업 약국 선택 시 요청 확인 페이지로 이동 (PICK-11)
+  const handleNavigateToPickupRequestConfirm = (pharmacy: DummyPharmacy) => {
+    setSelectedPharmacy(pharmacy);
+    setCurrentScreen('pickupRequestConfirm');
+  };
+
+  // 픽업 요청 확인에서 뒤로가기
+  const handlePickupRequestConfirmBack = () => {
+    setCurrentScreen('pickupPharmacySelect');
+  };
+
+  // 픽업 요청 제출 완료 후 상태 확인 페이지로 이동 (PICK-15)
+  const handlePickupRequestConfirmed = () => {
+    setCurrentScreen('pickupStatus');
+  };
+
+  // 픽업 상태 확인에서 홈으로 돌아가기
+  const handlePickupStatusClose = () => {
+    setSelectedPickupProducts([]);
+    setSelectedPickupCategoryId(null);
+    setSelectedPharmacy(null);
+    setCurrentScreen('home');
+    setHomeInitialTab('journal');
+  };
+
+  // 픽업 히스토리 화면으로 이동
+  const handleNavigateToPickupHistory = () => {
+    setCurrentScreen('pickupHistory');
+  };
+
+  // 픽업 히스토리에서 뒤로가기
+  const handlePickupHistoryBack = () => {
+    setCurrentScreen('home');
+    setHomeInitialTab('journal');
+  };
+
+  // 픽업 내역 상세로 이동 (PICK-19)
+  const handleNavigateToPickupDetail = (requestId: string) => {
+    setSelectedPickupRequestId(requestId);
+    setCurrentScreen('pickupDetail');
+  };
+
+  // 픽업 상세에서 뒤로가기
+  const handlePickupDetailBack = () => {
+    setCurrentScreen('pickupHistory');
+  };
+
+  // 픽업 예약 완료 (기존 호환성 유지)
   const handleConfirmPickup = (pharmacyId: string) => {
     Alert.alert(
       '픽업 예약 완료',
@@ -562,6 +618,27 @@ export default function App() {
           selectedProducts={selectedPickupProducts}
           onNavigateBack={handlePickupPharmacySelectBack}
           onConfirmPickup={handleConfirmPickup}
+          onNavigateToRequestConfirm={handleNavigateToPickupRequestConfirm}
+        />
+      ) : currentScreen === 'pickupRequestConfirm' && selectedPharmacy ? (
+        <PickupRequestConfirmScreen
+          selectedProducts={selectedPickupProducts}
+          selectedPharmacy={selectedPharmacy}
+          onBack={handlePickupRequestConfirmBack}
+          onConfirm={handlePickupRequestConfirmed}
+        />
+      ) : currentScreen === 'pickupStatus' ? (
+        <PickupStatusScreen
+          onClose={handlePickupStatusClose}
+        />
+      ) : currentScreen === 'pickupHistory' ? (
+        <PickupHistoryScreen
+          onBack={handlePickupHistoryBack}
+          onNavigateToDetail={handleNavigateToPickupDetail}
+        />
+      ) : currentScreen === 'pickupDetail' && selectedPickupRequestId ? (
+        <PickupStatusScreen
+          onClose={handlePickupDetailBack}
         />
       ) : (
         <HomeScreen
@@ -576,6 +653,7 @@ export default function App() {
           onNavigateToPostDetail={handleNavigateToPostDetail}
           onNavigateToPostWrite={handleNavigateToPostWrite}
           onNavigateToPickupCategory={handleNavigateToPickupProductList}
+          onNavigateToPickupHistory={handleNavigateToPickupHistory}
           initialTab={homeInitialTab}
         />
       )}

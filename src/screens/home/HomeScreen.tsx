@@ -50,6 +50,7 @@ interface HomeScreenProps {
   onNavigateToPostDetail?: (postId: number) => void;
   onNavigateToPostWrite?: (boardType: BoardType) => void;
   onNavigateToPickupCategory?: (categoryId: string) => void;
+  onNavigateToPickupHistory?: () => void;
   initialTab?: TabType;
 }
 
@@ -67,6 +68,7 @@ const HomeScreen = ({
   onNavigateToPostDetail,
   onNavigateToPostWrite,
   onNavigateToPickupCategory,
+  onNavigateToPickupHistory,
   initialTab,
 }: HomeScreenProps) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'home');
@@ -1317,6 +1319,7 @@ const HomeScreen = ({
                 onNavigateToPickupCategory(categoryId);
               }
             }}
+            onNavigateToHistory={onNavigateToPickupHistory}
           />
         )}
       </View>

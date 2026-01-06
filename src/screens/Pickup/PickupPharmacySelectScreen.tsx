@@ -25,10 +25,11 @@ interface PickupPharmacySelectScreenProps {
   selectedProducts: SelectedProduct[];
   onNavigateBack: () => void;
   onConfirmPickup?: (pharmacyId: string) => void;
+  onNavigateToRequestConfirm?: (pharmacy: DummyPharmacy) => void;
 }
 
 // 더미 약국 데이터
-interface DummyPharmacy {
+export interface DummyPharmacy {
   id: string;
   name: string;
   address: string;
@@ -86,10 +87,11 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
   selectedProducts,
   onNavigateBack,
   onConfirmPickup,
+  onNavigateToRequestConfirm,
 }) => {
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
 
-  // 픽업 예약 확인
+  // PICK-11: 약국 선택 시 픽업 요청 확인 페이지로 이동
   const handleConfirmPickup = () => {
     if (!selectedPharmacy) {
       Alert.alert('알림', '약국을 선택해주세요.');
@@ -99,34 +101,40 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
     const pharmacy = dummyPharmacies.find(p => p.id === selectedPharmacy);
     if (!pharmacy) return;
 
-    if (!pharmacy.isOpen) {
-      Alert.alert('알림', '현재 영업시간이 아닙니다.');
-      return;
-    }
+    // 픽업 요청 확인 페이지로 이동
+    if (onNavigateToRequestConfirm) {
+      onNavigateToRequestConfirm(pharmacy);
+    } else {
+      // 기존 동작 유지 (호환성)
+      if (!pharmacy.isOpen) {
+        Alert.alert('알림', '현재 영업시간이 아닙니다.');
+        return;
+      }
 
-    if (!pharmacy.hasStock) {
-      Alert.alert('알림', '해당 약국에 재고가 없습니다. 다른 약국을 선택해주세요.');
-      return;
-    }
+      if (!pharmacy.hasStock) {
+        Alert.alert('알림', '해당 약국에 재고가 없습니다. 다른 약국을 선택해주세요.');
+        return;
+      }
 
-    Alert.alert(
-      '픽업 예약 확인',
-      `${pharmacy.name}에서 픽업하시겠습니까?\n\n선택한 약품: ${selectedProducts.length}개`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '확인',
-          onPress: () => {
-            if (onConfirmPickup) {
-              onConfirmPickup(selectedPharmacy);
-            } else {
-              Alert.alert('픽업 예약 완료', '약국에서 픽업 준비가 완료되면 알림을 보내드립니다.');
-              onNavigateBack();
-            }
+      Alert.alert(
+        '픽업 예약 확인',
+        `${pharmacy.name}에서 픽업하시겠습니까?\n\n선택한 약품: ${selectedProducts.length}개`,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '확인',
+            onPress: () => {
+              if (onConfirmPickup) {
+                onConfirmPickup(selectedPharmacy);
+              } else {
+                Alert.alert('픽업 예약 완료', '약국에서 픽업 준비가 완료되면 알림을 보내드립니다.');
+                onNavigateBack();
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   // 약국 카드 렌더링

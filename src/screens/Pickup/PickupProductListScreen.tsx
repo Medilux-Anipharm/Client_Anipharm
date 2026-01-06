@@ -292,10 +292,26 @@ const PickupProductListScreen: React.FC<PickupProductListScreenProps> = ({
       {/* 하단 고정 요약 바 */}
       {selectedCount > 0 && (
         <View style={styles.bottomBar}>
-          <View style={styles.summaryInfo}>
-            <Text style={styles.summaryText}>선택한 약품</Text>
-            <Text style={styles.summaryCount}>{selectedCount}개</Text>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>선택한 약품 ({selectedCount}개)</Text>
           </View>
+
+          <ScrollView
+            style={styles.summaryList}
+            showsVerticalScrollIndicator={false}
+          >
+            {Array.from(selectedProducts.values()).map((item) => (
+              <View key={item.product.id} style={styles.summaryItem}>
+                <Text style={styles.summaryProductName} numberOfLines={1}>
+                  {item.product.nameKo}
+                </Text>
+                <Text style={styles.summaryProductQuantity}>
+                  {item.quantity}개
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+
           <TouchableOpacity
             style={styles.pickupButton}
             onPress={handlePickupPress}
@@ -535,6 +551,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
+    maxHeight: 280,
+  },
+  summaryHeader: {
+    marginBottom: 12,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+  },
+  summaryList: {
+    maxHeight: 120,
+    marginBottom: 12,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  summaryProductName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+    marginRight: 12,
+  },
+  summaryProductQuantity: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FF8A3D',
   },
   summaryInfo: {
     flexDirection: 'row',
