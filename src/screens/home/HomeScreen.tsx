@@ -684,22 +684,6 @@ const HomeScreen = ({
           <TouchableOpacity
             style={[
               styles.filterButton,
-              selectedCategory === 'hospital' && styles.filterButtonActive,
-            ]}
-            onPress={() => handleCategoryChange('hospital')}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                selectedCategory === 'hospital' && styles.filterButtonTextActive,
-              ]}
-            >
-              동물병원
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
               selectedCategory === 'pharmacy' && styles.filterButtonActive,
             ]}
             onPress={() => handleCategoryChange('pharmacy')}
@@ -711,6 +695,22 @@ const HomeScreen = ({
               ]}
             >
               동물약국
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedCategory === 'hospital' && styles.filterButtonActive,
+            ]}
+            onPress={() => handleCategoryChange('hospital')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                selectedCategory === 'hospital' && styles.filterButtonTextActive,
+              ]}
+            >
+              동물병원
             </Text>
           </TouchableOpacity>
         </ScrollView>

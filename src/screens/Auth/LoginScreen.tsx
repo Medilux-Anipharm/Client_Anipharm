@@ -33,6 +33,7 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
   // UI 상태
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginType, setLoginType] = useState<'user' | 'pharmacy'>('user');
 
   // 에러 상태
   const [emailError, setEmailError] = useState('');
@@ -164,6 +165,52 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
               <Text style={styles.titleBlack}>에</Text>
             </Text>
             <Text style={styles.subtitle}>오신 것을 환영해요!</Text>
+          </View>
+
+          {/* 로그인 타입 토글 */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                styles.toggleButtonLeft,
+                loginType === 'user' && styles.toggleButtonActive,
+              ]}
+              onPress={() => setLoginType('user')}
+              disabled={loading}
+            >
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={loginType === 'user' ? '#FF8A3D' : '#999'}
+              />
+              <Text style={[
+                styles.toggleButtonText,
+                loginType === 'user' && styles.toggleButtonTextActive,
+              ]}>
+                사용자 로그인
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                styles.toggleButtonRight,
+                loginType === 'pharmacy' && styles.toggleButtonActive,
+              ]}
+              onPress={() => setLoginType('pharmacy')}
+              disabled={loading}
+            >
+              <Ionicons
+                name="storefront-outline"
+                size={20}
+                color={loginType === 'pharmacy' ? '#FF8A3D' : '#999'}
+              />
+              <Text style={[
+                styles.toggleButtonText,
+                loginType === 'pharmacy' && styles.toggleButtonTextActive,
+              ]}>
+                약국 로그인
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* 전체 에러 메시지 */}
@@ -308,7 +355,7 @@ const styles = StyleSheet.create({
     paddingTop: 32,
   },
   titleContainer: {
-    marginBottom: 40,
+    marginBottom: 32,
   },
   title: {
     fontSize: 24,
@@ -325,6 +372,46 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  toggleButtonLeft: {
+    marginRight: 2,
+  },
+  toggleButtonRight: {
+    marginLeft: 2,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#999',
+  },
+  toggleButtonTextActive: {
+    color: '#FF8A3D',
+    fontWeight: '600',
   },
   generalErrorContainer: {
     backgroundColor: '#FFE8E8',
