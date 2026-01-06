@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Image,
+  // Image, // Ionicons로 대체
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getInboxList, deleteConversation, InboxItem } from '../../services/healthChatbot';
@@ -178,11 +178,12 @@ const CareInboxScreen = ({
           {isDeleteMode ? (
             <Text style={styles.deleteModeButtonText}>취소</Text>
           ) : (
-            <Image 
-              source={require('../../../ref/archivePage/Trash.png')} 
-              style={styles.trashIcon}
-              resizeMode="contain"
-            />
+            // <Image
+            //   source={require('../../../ref/archivePage/Trash.png')}
+            //   style={styles.trashIcon}
+            //   resizeMode="contain"
+            // />
+            <Ionicons name="trash-outline" size={24} color="#fff" />
           )}
         </TouchableOpacity>
       </View>

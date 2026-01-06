@@ -24,11 +24,15 @@ const loadPlaces = async (category: MapCategory | 'all', location: LocationCoord
       console.log(`[loadPlaces] 호출됨 - category: ${category}, location:`, location);
       setLoading(true)
 
-      if (category === 'all' && location){
+      // location이 없으면 기본 위치(서울시청) 사용
+      const searchLocation = location || { latitude: 37.5665, longitude: 126.9780 };
+      console.log(`[loadPlaces] 사용할 위치:`, searchLocation);
+
+      if (category === 'all'){
         console.log('[loadPlaces] 전체 카테고리 - 병원과 약국 데이터 로딩 시작');
         const [hospitalResults, pharmacyResult] = await Promise.all([
-          hospitalService.findNearby(location.latitude, location.longitude, 5),
-          pharmacyService.findNearby(location.latitude, location.longitude, 5)
+          hospitalService.findNearby(searchLocation.latitude, searchLocation.longitude, 5),
+          pharmacyService.findNearby(searchLocation.latitude, searchLocation.longitude, 5)
         ])
 
         console.log(`[loadPlaces] 병원 ${hospitalResults.length}개, 약국 ${pharmacyResult.length}개 조회 완료`);
@@ -46,9 +50,9 @@ const loadPlaces = async (category: MapCategory | 'all', location: LocationCoord
           setSelectedHospital(null)
           setSelectedPlace(null)
         }
-      }else if (category === 'hospital' && location ){
+      }else if (category === 'hospital'){
         console.log('[loadPlaces] 병원 카테고리 - 병원 데이터 로딩 시작');
-        const results = await hospitalService.findNearby(location.latitude, location.longitude, 5)
+        const results = await hospitalService.findNearby(searchLocation.latitude, searchLocation.longitude, 5)
         console.log(`[loadPlaces] 병원 ${results.length}개 조회 완료`);
         setHospitals(results)
         setPlaces([])
@@ -59,9 +63,9 @@ const loadPlaces = async (category: MapCategory | 'all', location: LocationCoord
           setSelectedPlace(null)
           setSelectedPharmacy(null)
         }
-      }else if (category === 'pharmacy' && location){
+      }else if (category === 'pharmacy'){
         console.log('[loadPlaces] 약국 카테고리 - 약국 데이터 로딩 시작');
-        const results = await pharmacyService.findNearby(location.latitude, location.longitude, 5)
+        const results = await pharmacyService.findNearby(searchLocation.latitude, searchLocation.longitude, 5)
         console.log(`[loadPlaces] 약국 ${results.length}개 조회 완료`);
         setPharmacies(results)
         setHospitals([])

@@ -53,46 +53,106 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({
 
     setLoading(true);
     try {
-      let response;
+      let allPosts: PostListItem[] = [];
 
       if (selectedTab === 'all') {
-        // 전체 게시판 - 위치 기반 조회
-        if (userLocation) {
-          response = await communityService.getPostListByLocation('free', {
-            latitude: userLocation.latitude,
-            longitude: userLocation.longitude,
-            radius: 5, // 5km 반경
-            page: pageNum,
-            limit: 20,
-            sortBy: 'latest',
-          });
-        } else {
-          response = await communityService.getPostList('free', {
-            page: pageNum,
-            limit: 20,
-            sortBy: 'latest',
-          });
-        }
+        // 전체 게시판 - 자유게시판과 질문답변 모두 가져오기
+        const [freeResponse, qnaResponse] = await Promise.all([
+          userLocation
+            ? communityService.getPostListByLocation('free', {
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                radius: 5,
+                page: pageNum,
+                limit: 20,
+                sortBy: 'latest',
+              })
+            : communityService.getPostList('free', {
+                page: pageNum,
+                limit: 20,
+                sortBy: 'latest',
+              }),
+          userLocation
+            ? communityService.getPostListByLocation('qna', {
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                radius: 5,
+                page: pageNum,
+                limit: 20,
+                sortBy: 'latest',
+              })
+            : communityService.getPostList('qna', {
+                page: pageNum,
+                limit: 20,
+                sortBy: 'latest',
+              }),
+        ]);
+
+        // 두 게시판의 게시물을 합치고 최신순으로 정렬
+        const freePosts = freeResponse.success
+          ? freeResponse.data.posts.map((post: any) => ({
+              ...post,
+              authorNickname: post.author?.nickname || post.authorNickname || '익명',
+              authorProfileUrl: post.author?.profileImage || post.authorProfileUrl || null,
+              authorId: post.author?.userId || post.authorId || 0,
+              images: post.thumbnail ? [post.thumbnail] : (post.images || []),
+              title: post.title || '',
+              content: post.content || '',
+            }))
+          : [];
+
+        const qnaPosts = qnaResponse.success
+          ? qnaResponse.data.posts.map((post: any) => ({
+              ...post,
+              authorNickname: post.author?.nickname || post.authorNickname || '익명',
+              authorProfileUrl: post.author?.profileImage || post.authorProfileUrl || null,
+              authorId: post.author?.userId || post.authorId || 0,
+              images: post.thumbnail ? [post.thumbnail] : (post.images || []),
+              title: post.title || '',
+              content: post.content || '',
+            }))
+          : [];
+
+        allPosts = [...freePosts, ...qnaPosts].sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA; // 최신순 정렬
+        });
+
+        // 페이지네이션: 두 게시판 모두 더 이상 데이터가 없으면 hasMore = false
+        const hasMoreFree = freeResponse.success ? freeResponse.data.pagination.hasNextPage : false;
+        const hasMoreQna = qnaResponse.success ? qnaResponse.data.pagination.hasNextPage : false;
+        setHasMore(hasMoreFree || hasMoreQna);
       } else {
         // 자유게시판 또는 Q&A
         const boardType: BoardType = selectedTab === 'free' ? 'free' : 'qna';
-        response = await communityService.getPostList(boardType, {
+        const response = await communityService.getPostList(boardType, {
           page: pageNum,
           limit: 20,
           sortBy: 'latest',
         });
+
+        if (response.success) {
+          allPosts = response.data.posts.map((post: any) => ({
+            ...post,
+            authorNickname: post.author?.nickname || post.authorNickname || '익명',
+            authorProfileUrl: post.author?.profileImage || post.authorProfileUrl || null,
+            authorId: post.author?.userId || post.authorId || 0,
+            images: post.thumbnail ? [post.thumbnail] : (post.images || []),
+            title: post.title || '',
+            content: post.content || '',
+          }));
+          setHasMore(response.data.pagination.hasNextPage);
+        } else {
+          Alert.alert('오류', response.message || '게시글 목록을 불러올 수 없습니다.');
+          return;
+        }
       }
 
-      if (response.success) {
-        const newPosts = response.data.posts;
-        if (refresh || pageNum === 1) {
-          setPosts(newPosts);
-        } else {
-          setPosts((prev) => [...prev, ...newPosts]);
-        }
-        setHasMore(response.data.pagination.hasNextPage);
+      if (refresh || pageNum === 1) {
+        setPosts(allPosts);
       } else {
-        Alert.alert('오류', response.message || '게시글 목록을 불러올 수 없습니다.');
+        setPosts((prev) => [...prev, ...allPosts]);
       }
     } catch (error: any) {
       console.error('게시글 목록 조회 에러:', error);

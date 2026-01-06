@@ -22,9 +22,14 @@ import PickupPharmacySelectScreen, { DummyPharmacy } from './src/screens/Pickup/
 import PickupRequestConfirmScreen from './src/screens/Pickup/PickupRequestConfirmScreen';
 import PickupStatusScreen from './src/screens/Pickup/PickupStatusScreen';
 import PickupHistoryScreen from './src/screens/Pickup/PickupHistoryScreen';
+import PlaceDetailScreen from './src/screens/map/PlaceDetailScreen';
+import ReviewWriteScreen from './src/screens/review/ReviewWriteScreen';
+import ReviewDetailScreen from './src/screens/review/ReviewDetailScreen';
 import { User } from './src/types/auth';
 import { BoardType } from './src/types/community';
 import { PickupProduct } from './src/types/pickup';
+import { VeterinaryHospital } from './src/types/hospital';
+import { VeterinaryPharmacy } from './src/types/pharmacy';
 import { checkAuth } from './src/services/auth';
 import { startCareManagementChat } from './src/services/healthChatbot';
 import { getPets } from './src/services/pet';
@@ -52,7 +57,11 @@ type Screen =
   | 'pickupRequestConfirm'
   | 'pickupStatus'
   | 'pickupHistory'
-  | 'pickupDetail';
+  | 'pickupDetail'
+  | 'placeDetail'
+  | 'reviewWrite'
+  | 'reviewDetail'
+  | 'reviewEdit';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
@@ -81,6 +90,17 @@ export default function App() {
   }>>([]);
   const [selectedPharmacy, setSelectedPharmacy] = useState<DummyPharmacy | null>(null);
   const [selectedPickupRequestId, setSelectedPickupRequestId] = useState<string | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<{
+    type: 'pharmacy' | 'hospital';
+    place: VeterinaryPharmacy | VeterinaryHospital;
+  } | null>(null);
+  const [reviewWriteParams, setReviewWriteParams] = useState<{
+    type: 'pharmacy' | 'hospital';
+    placeId: number;
+    placeName: string;
+    reviewId?: number; // 수정 모드일 때
+  } | null>(null);
+  const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
 
   const handleLoginSuccess = (user: User) => {
     setUserData(user);
@@ -485,6 +505,56 @@ export default function App() {
     );
   };
 
+  // 장소 상세 화면으로 이동
+  const handleNavigateToPlaceDetail = (type: 'pharmacy' | 'hospital', place: VeterinaryPharmacy | VeterinaryHospital) => {
+    setSelectedPlace({ type, place });
+    setCurrentScreen('placeDetail');
+  };
+
+  // 장소 상세에서 뒤로가기
+  const handlePlaceDetailBack = () => {
+    setSelectedPlace(null);
+    setCurrentScreen('home');
+  };
+
+  // 리뷰 작성 화면으로 이동
+  const handleNavigateToReviewWrite = (type: 'pharmacy' | 'hospital', placeId: number, placeName: string) => {
+    setReviewWriteParams({ type, placeId, placeName });
+    setCurrentScreen('reviewWrite');
+  };
+
+  // 리뷰 수정 화면으로 이동
+  const handleNavigateToReviewEdit = (type: 'pharmacy' | 'hospital', placeId: number, placeName: string, reviewId: number) => {
+    setReviewWriteParams({ type, placeId, placeName, reviewId });
+    setCurrentScreen('reviewEdit');
+  };
+
+  // 리뷰 작성/수정에서 뒤로가기
+  const handleReviewWriteBack = () => {
+    setReviewWriteParams(null);
+    if (selectedPlace) {
+      setCurrentScreen('placeDetail');
+    } else {
+      setCurrentScreen('home');
+    }
+  };
+
+  // 리뷰 상세 화면으로 이동
+  const handleNavigateToReviewDetail = (reviewId: number) => {
+    setSelectedReviewId(reviewId);
+    setCurrentScreen('reviewDetail');
+  };
+
+  // 리뷰 상세에서 뒤로가기
+  const handleReviewDetailBack = () => {
+    setSelectedReviewId(null);
+    if (selectedPlace) {
+      setCurrentScreen('placeDetail');
+    } else {
+      setCurrentScreen('home');
+    }
+  };
+
   // 인증이 필요한 화면인지 확인
   const requiresAuth = currentScreen !== 'login' && currentScreen !== 'signup';
 
@@ -640,6 +710,35 @@ export default function App() {
         <PickupStatusScreen
           onClose={handlePickupDetailBack}
         />
+      ) : currentScreen === 'placeDetail' && selectedPlace ? (
+        <PlaceDetailScreen
+          type={selectedPlace.type}
+          place={selectedPlace.place}
+          onNavigateBack={handlePlaceDetailBack}
+          onNavigateToReviewWrite={handleNavigateToReviewWrite}
+          onNavigateToReviewDetail={handleNavigateToReviewDetail}
+        />
+      ) : currentScreen === 'reviewWrite' && reviewWriteParams && !reviewWriteParams.reviewId ? (
+        <ReviewWriteScreen
+          type={reviewWriteParams.type}
+          placeId={reviewWriteParams.placeId}
+          placeName={reviewWriteParams.placeName}
+          onNavigateBack={handleReviewWriteBack}
+        />
+      ) : currentScreen === 'reviewEdit' && reviewWriteParams && reviewWriteParams.reviewId ? (
+        <ReviewWriteScreen
+          type={reviewWriteParams.type}
+          placeId={reviewWriteParams.placeId}
+          placeName={reviewWriteParams.placeName}
+          reviewId={reviewWriteParams.reviewId}
+          onNavigateBack={handleReviewWriteBack}
+        />
+      ) : currentScreen === 'reviewDetail' && selectedReviewId ? (
+        <ReviewDetailScreen
+          reviewId={selectedReviewId}
+          onNavigateBack={handleReviewDetailBack}
+          onNavigateToEdit={handleNavigateToReviewEdit}
+        />
       ) : (
         <HomeScreen
           key={homeInitialTab || 'default'} // key를 추가하여 initialTab 변경 시 재렌더링 강제
@@ -654,6 +753,7 @@ export default function App() {
           onNavigateToPostWrite={handleNavigateToPostWrite}
           onNavigateToPickupCategory={handleNavigateToPickupProductList}
           onNavigateToPickupHistory={handleNavigateToPickupHistory}
+          onNavigateToPlaceDetail={handleNavigateToPlaceDetail}
           initialTab={homeInitialTab}
         />
       )}

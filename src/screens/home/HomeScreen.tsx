@@ -51,6 +51,7 @@ interface HomeScreenProps {
   onNavigateToPostWrite?: (boardType: BoardType) => void;
   onNavigateToPickupCategory?: (categoryId: string) => void;
   onNavigateToPickupHistory?: () => void;
+  onNavigateToPlaceDetail?: (type: 'pharmacy' | 'hospital', place: VeterinaryPharmacy | VeterinaryHospital) => void;
   initialTab?: TabType;
 }
 

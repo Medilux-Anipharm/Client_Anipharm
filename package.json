@@ -1,7 +1,7 @@
 {
   "name": "client_anipharm",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.tsx",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -16,6 +16,7 @@
     "expo": "~54.0.25",
     "expo-build-properties": "~1.0.9",
     "expo-font": "^14.0.9",
+    "expo-image-picker": "~17.0.10",
     "expo-location": "~19.0.7",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",

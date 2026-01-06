@@ -37,15 +37,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPress, onLikePress }) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
+  // 백엔드 응답 구조에 맞게 데이터 변환
+  const authorNickname = (post as any).author?.nickname || post.authorNickname || '익명';
+  const authorProfileUrl = (post as any).author?.profileImage || post.authorProfileUrl || null;
+  const postTitle = post.title || '';
+  const postContent = post.content || '';
+
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
       {/* 작성자 정보 */}
       <View style={styles.header}>
         <View style={styles.authorInfo}>
           <View style={styles.profileImage}>
-            {post.authorProfileUrl ? (
+            {authorProfileUrl ? (
               <Image
-                source={{ uri: post.authorProfileUrl }}
+                source={{ uri: authorProfileUrl }}
                 style={styles.profileImageInner}
               />
             ) : (
@@ -53,20 +59,29 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPress, onLikePress }) => {
             )}
           </View>
           <View style={styles.authorTextContainer}>
-            <Text style={styles.authorName}>{post.authorNickname}</Text>
+            <Text style={styles.authorName}>{authorNickname}</Text>
             <Text style={styles.timestamp}>{formatTime(post.createdAt)}</Text>
           </View>
         </View>
         <View style={styles.locationBadge}>
           <Ionicons name="location" size={12} color="#FF8A3D" />
-          <Text style={styles.locationText}>{post.locationName}</Text>
+          <Text style={styles.locationText}>{post.locationName || ''}</Text>
         </View>
       </View>
+
+      {/* 게시글 제목 */}
+      {postTitle ? (
+        <View style={styles.titleContainer}>
+          <Text style={styles.titleText} numberOfLines={2}>
+            {postTitle}
+          </Text>
+        </View>
+      ) : null}
 
       {/* 게시글 내용 */}
       <View style={styles.content}>
         <Text style={styles.contentText} numberOfLines={3}>
-          {post.content}
+          {postContent}
         </Text>
       </View>
 
@@ -168,6 +183,15 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     fontWeight: '600',
   },
+  titleContainer: {
+    marginBottom: 8,
+  },
+  titleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    lineHeight: 22,
+  },
   content: {
     marginBottom: 12,
   },
@@ -208,3 +232,4 @@ const styles = StyleSheet.create({
 });
 
 export default PostCard;
+

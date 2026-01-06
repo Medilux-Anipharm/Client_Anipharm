@@ -101,6 +101,24 @@ export const API_CONFIG = {
       // 좋아요
       ADD_LIKE: (postId: number) => `/community/posts/${postId}/like`,
       REMOVE_LIKE: (postId: number) => `/community/posts/${postId}/like`,
+    },
+    // Review 관련 엔드포인트
+    REVIEWS: {
+      // 약국 리뷰
+      PHARMACY_LIST: (pharmacyId: number) => `/reviews/pharmacies/${pharmacyId}`,
+      PHARMACY_SUMMARY: (pharmacyId: number) => `/reviews/pharmacies/${pharmacyId}/summary`,
+      PHARMACY_CREATE: (pharmacyId: number) => `/reviews/pharmacies/${pharmacyId}`,
+      // 병원 리뷰
+      HOSPITAL_LIST: (hospitalId: number) => `/reviews/hospitals/${hospitalId}`,
+      HOSPITAL_SUMMARY: (hospitalId: number) => `/reviews/hospitals/${hospitalId}/summary`,
+      HOSPITAL_CREATE: (hospitalId: number) => `/reviews/hospitals/${hospitalId}`,
+      // 개별 리뷰
+      DETAIL: (reviewId: number) => `/reviews/${reviewId}`,
+      UPDATE: (reviewId: number) => `/reviews/${reviewId}`,
+      DELETE: (reviewId: number) => `/reviews/${reviewId}`,
+      // 좋아요
+      ADD_LIKE: (reviewId: number) => `/reviews/${reviewId}/like`,
+      REMOVE_LIKE: (reviewId: number) => `/reviews/${reviewId}/like`,
     }
   }
 };
