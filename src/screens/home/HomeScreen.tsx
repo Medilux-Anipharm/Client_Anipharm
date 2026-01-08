@@ -58,7 +58,7 @@ interface HomeScreenProps {
 
 
 
-const HomeScreen = ({
+const HomeScreen: React.FC<HomeScreenProps> = ({
   userData,
   onLogout,
   onNavigateToPetProfile,
@@ -70,6 +70,7 @@ const HomeScreen = ({
   onNavigateToPostWrite,
   onNavigateToPickupCategory,
   onNavigateToPickupHistory,
+  onNavigateToPlaceDetail,
   initialTab,
 }: HomeScreenProps) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'home');
@@ -1089,6 +1090,14 @@ const HomeScreen = ({
               <Ionicons name="map-outline" size={18} color="#FF8A3D" />
               <Text style={styles.actionButtonText}>지도에서 보기</Text>
             </TouchableOpacity>
+            {onNavigateToPlaceDetail && (
+              <TouchableOpacity
+                style={styles.detailButton}
+                onPress={() => onNavigateToPlaceDetail('pharmacy', selectedPharmacy)}
+              >
+                <Text style={styles.detailButtonText}>상세보기</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.reserveButton}>
               <Text style={styles.reserveButtonText}>예약하기</Text>
             </TouchableOpacity>
@@ -1146,6 +1155,14 @@ const HomeScreen = ({
               <Ionicons name="map-outline" size={18} color="#FF8A3D" />
               <Text style={styles.actionButtonText}>지도에서 보기</Text>
             </TouchableOpacity>
+            {onNavigateToPlaceDetail && (
+              <TouchableOpacity
+                style={styles.detailButton}
+                onPress={() => onNavigateToPlaceDetail('hospital', selectedHospital)}
+              >
+                <Text style={styles.detailButtonText}>상세보기</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.reserveButton}>
               <Text style={styles.reserveButtonText}>예약하기</Text>
             </TouchableOpacity>
@@ -1641,7 +1658,7 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     marginTop: 8,
   },
   actionButton: {
@@ -1659,6 +1676,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF8A3D',
   },
+  detailButton: {
+    flex: 1,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  detailButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1976D2',
+  },
   reserveButton: {
     flex: 1,
     backgroundColor: '#FF8A3D',
@@ -1667,7 +1696,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reserveButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#fff',
   },
