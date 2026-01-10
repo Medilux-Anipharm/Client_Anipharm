@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+/**
+ * PickupHistoryScreen
+ * 픽업 요청 내역 화면 (실제 API 연동)
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,150 +11,115 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PickupRequest, PickupStatus } from '../../types/pickup';
+import pickupService from '../../services/pickup';
 
 interface PickupHistoryScreenProps {
   onBack: () => void;
-  onNavigateToDetail: (requestId: string) => void;
+  onNavigateToDetail: (pickupId: number) => void;
 }
-
-// 더미 픽업 내역 데이터 (PICK-18)
-const dummyPickupHistory: PickupRequest[] = [
-  {
-    id: 'REQ-2024-001',
-    status: 'ready',
-    requestDate: '2024-01-06 13:30',
-    pharmacy: {
-      id: 'pharmacy_1',
-      name: '우리동물약국 강남점',
-      phone: '02-1234-5678',
-      address: '서울시 강남구 테헤란로 123',
-    },
-    products: [
-      { name: '베토큐어 워머', quantity: 2 },
-      { name: '펫닥 프로바이오틱스', quantity: 1 },
-    ],
-    estimatedPickupDate: '2024-01-09 (화)',
-    totalQuantity: 3,
-  },
-  {
-    id: 'REQ-2024-002',
-    status: 'completed',
-    requestDate: '2024-01-03 10:15',
-    pharmacy: {
-      id: 'pharmacy_2',
-      name: '펫케어 동물약국',
-      phone: '02-2345-6789',
-      address: '서울시 서초구 반포대로 456',
-    },
-    products: [
-      { name: '덴티펫 구강 케어', quantity: 1 },
-      { name: '피부 진정 스프레이', quantity: 1 },
-    ],
-    completedDate: '2024-01-04 14:20',
-    totalQuantity: 2,
-  },
-  {
-    id: 'REQ-2024-003',
-    status: 'pending',
-    requestDate: '2024-01-02 16:45',
-    pharmacy: {
-      id: 'pharmacy_1',
-      name: '우리동물약국 강남점',
-      phone: '02-1234-5678',
-      address: '서울시 강남구 테헤란로 123',
-    },
-    products: [
-      { name: '관절 영양제', quantity: 1 },
-    ],
-    estimatedPickupDate: '2024-01-08 (월)',
-    totalQuantity: 1,
-  },
-  {
-    id: 'REQ-2024-004',
-    status: 'completed',
-    requestDate: '2023-12-28 09:20',
-    pharmacy: {
-      id: 'pharmacy_3',
-      name: '애니멀 헬스케어 약국',
-      phone: '02-3456-7890',
-      address: '서울시 강동구 천호대로 789',
-    },
-    products: [
-      { name: '구충제', quantity: 2 },
-      { name: '심장사상충 예방약', quantity: 1 },
-    ],
-    completedDate: '2023-12-29 15:30',
-    totalQuantity: 3,
-  },
-];
 
 const PickupHistoryScreen: React.FC<PickupHistoryScreenProps> = ({
   onBack,
   onNavigateToDetail,
 }) => {
   const [selectedTab, setSelectedTab] = useState<'all' | 'pending' | 'completed'>('all');
+  const [pickups, setPickups] = useState<PickupRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // 상태별 필터링
-  const filteredHistory = dummyPickupHistory.filter((request) => {
-    if (selectedTab === 'all') return true;
-    if (selectedTab === 'pending') return request.status === 'pending' || request.status === 'ready';
-    if (selectedTab === 'completed') return request.status === 'completed';
-    return true;
-  });
+  useEffect(() => {
+    loadPickups();
+  }, [selectedTab]);
 
-  // 상태 정보 반환
-  const getStatusInfo = (status: PickupStatus) => {
-    switch (status) {
-      case 'pending':
-        return {
-          icon: 'time-outline' as const,
-          color: '#FF9800',
-          text: '준비 중',
-          bgColor: '#FFF3E0',
-        };
-      case 'ready':
-        return {
-          icon: 'checkmark-circle-outline' as const,
-          color: '#4CAF50',
-          text: '픽업 가능',
-          bgColor: '#E8F5E9',
-        };
-      case 'completed':
-        return {
-          icon: 'checkbox-outline' as const,
-          color: '#2196F3',
-          text: '완료',
-          bgColor: '#E3F2FD',
-        };
-      case 'cancelled':
-        return {
-          icon: 'close-circle-outline' as const,
-          color: '#999',
-          text: '취소',
-          bgColor: '#F5F5F5',
-        };
-      default:
-        return {
-          icon: 'help-circle-outline' as const,
-          color: '#999',
-          text: '확인 중',
-          bgColor: '#F5F5F5',
-        };
+  const loadPickups = async () => {
+    try {
+      setLoading(true);
+
+      let status: PickupStatus | undefined;
+      if (selectedTab === 'pending') {
+        // 진행중: REQUESTED, ACCEPTED, WAITING, PREPARING, READY
+        status = undefined; // 전체 조회 후 필터링
+      } else if (selectedTab === 'completed') {
+        status = 'COMPLETED';
+      }
+
+      const data = await pickupService.getMyPickupRequests(status);
+
+      // 진행중 탭인 경우 추가 필터링
+      if (selectedTab === 'pending') {
+        setPickups(data.filter(p =>
+          ['REQUESTED', 'ACCEPTED', 'WAITING', 'PREPARING', 'READY'].includes(p.status)
+        ));
+      } else {
+        setPickups(data);
+      }
+    } catch (error: any) {
+      Alert.alert('오류', error.message || '픽업 내역을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadPickups();
+  };
+
+  const handleCancel = async (pickupId: number) => {
+    Alert.alert(
+      '픽업 취소',
+      '정말 픽업 요청을 취소하시겠습니까?',
+      [
+        { text: '아니오', style: 'cancel' },
+        {
+          text: '예',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await pickupService.cancelPickupRequest(pickupId, '고객 직접 취소');
+              Alert.alert('완료', '픽업 요청이 취소되었습니다.');
+              loadPickups();
+            } catch (error: any) {
+              Alert.alert('오류', error.message || '취소에 실패했습니다.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // 상태 정보 반환 (실제 상태 값 사용)
+  const getStatusInfo = (status: PickupStatus) => {
+    const statusText = pickupService.getStatusText(status);
+    const statusColor = pickupService.getStatusColor(status);
+    const statusIcon = pickupService.getStatusIcon(status);
+
+    return {
+      icon: statusIcon as any,
+      color: statusColor,
+      text: statusText,
+      bgColor: `${statusColor}22`, // 투명도 추가
+    };
   };
 
   // 픽업 내역 카드 렌더링
   const renderHistoryCard = (request: PickupRequest) => {
     const statusInfo = getStatusInfo(request.status);
+    const canCancel = pickupService.canCancel(request.status);
+    const totalQuantity = request.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
 
     return (
       <TouchableOpacity
-        key={request.id}
+        key={request.pickupId}
         style={styles.card}
-        onPress={() => onNavigateToDetail(request.id)}
+        onPress={() => onNavigateToDetail(request.pickupId)}
         activeOpacity={0.7}
       >
         {/* 상단: 상태 및 요청번호 */}
@@ -160,43 +130,62 @@ const PickupHistoryScreen: React.FC<PickupHistoryScreenProps> = ({
               {statusInfo.text}
             </Text>
           </View>
-          <Text style={styles.requestId}>{request.id}</Text>
+          <Text style={styles.requestId}>#{request.pickupId}</Text>
         </View>
 
         {/* 약국 정보 */}
         <View style={styles.pharmacyInfo}>
           <Ionicons name="storefront-outline" size={18} color="#666" />
-          <Text style={styles.pharmacyName}>{request.pharmacy.name}</Text>
+          <Text style={styles.pharmacyName}>{request.pharmacy?.name}</Text>
         </View>
 
         {/* 약품 정보 */}
         <View style={styles.productsInfo}>
           <Text style={styles.productsLabel}>요청 약품</Text>
           <Text style={styles.productsText}>
-            {request.products.map(p => p.name).join(', ')}
+            {request.products?.map(p => p.productName).join(', ') || ''}
           </Text>
-          <Text style={styles.quantityText}>총 {request.totalQuantity}개</Text>
+          <Text style={styles.quantityText}>총 {totalQuantity}개</Text>
         </View>
 
         {/* 하단: 날짜 정보 */}
         <View style={styles.cardFooter}>
           <View style={styles.dateInfo}>
             <Ionicons name="calendar-outline" size={14} color="#999" />
-            <Text style={styles.dateText}>요청일: {request.requestDate}</Text>
+            <Text style={styles.dateText}>
+              요청일: {pickupService.formatDate(request.requestedAt)}
+            </Text>
           </View>
-          {request.status === 'completed' && request.completedDate && (
+          {request.status === 'COMPLETED' && request.completedAt && (
             <View style={styles.dateInfo}>
               <Ionicons name="checkmark-circle-outline" size={14} color="#4CAF50" />
-              <Text style={styles.dateText}>완료일: {request.completedDate}</Text>
+              <Text style={styles.dateText}>
+                완료일: {pickupService.formatDate(request.completedAt)}
+              </Text>
             </View>
           )}
-          {(request.status === 'pending' || request.status === 'ready') && request.estimatedPickupDate && (
+          {request.estimatedPickupDate && !['COMPLETED', 'CANCELED', 'REJECTED'].includes(request.status) && (
             <View style={styles.dateInfo}>
               <Ionicons name="time-outline" size={14} color="#FF9800" />
-              <Text style={styles.dateText}>예상 픽업: {request.estimatedPickupDate}</Text>
+              <Text style={styles.dateText}>
+                예상 픽업: {pickupService.formatDate(request.estimatedPickupDate)}
+              </Text>
             </View>
           )}
         </View>
+
+        {/* 취소 버튼 (취소 가능한 경우에만) */}
+        {canCancel && (
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleCancel(request.pickupId);
+            }}
+          >
+            <Text style={styles.cancelButtonText}>취소</Text>
+          </TouchableOpacity>
+        )}
 
         {/* 화살표 아이콘 */}
         <View style={styles.arrowIcon}>
@@ -246,23 +235,32 @@ const PickupHistoryScreen: React.FC<PickupHistoryScreenProps> = ({
       </View>
 
       {/* 히스토리 리스트 */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredHistory.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color="#CCC" />
-            <Text style={styles.emptyText}>픽업 내역이 없습니다</Text>
-            <Text style={styles.emptySubText}>
-              약품을 픽업하면 내역이 여기에 표시됩니다
-            </Text>
-          </View>
-        ) : (
-          filteredHistory.map(renderHistoryCard)
-        )}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#FF8A3D" />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
+          {pickups.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={64} color="#CCC" />
+              <Text style={styles.emptyText}>픽업 내역이 없습니다</Text>
+              <Text style={styles.emptySubText}>
+                약품을 픽업하면 내역이 여기에 표시됩니다
+              </Text>
+            </View>
+          ) : (
+            pickups.map(renderHistoryCard)
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -427,6 +425,22 @@ const styles = StyleSheet.create({
     color: '#BBB',
     marginTop: 8,
     textAlign: 'center',
+  },
+  cancelButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    color: '#FF9800',
+    fontWeight: '600',
   },
 });
 

@@ -119,6 +119,20 @@ export const API_CONFIG = {
       // 좋아요
       ADD_LIKE: (reviewId: number) => `/reviews/${reviewId}/like`,
       REMOVE_LIKE: (reviewId: number) => `/reviews/${reviewId}/like`,
+    },
+    // Pickup 관련 엔드포인트
+    PICKUP: {
+      // 고객용
+      CREATE: '/pickup/request',
+      MY_REQUESTS: '/pickup/my-requests',
+      DETAIL: (pickupId: number) => `/pickup/${pickupId}`,
+      CANCEL: (pickupId: number) => `/pickup/${pickupId}/cancel`,
+      // 약국용
+      PHARMACY_REQUESTS: '/pickup/pharmacy/requests',
+      PHARMACY_STATS: '/pickup/pharmacy/stats',
+      PHARMACY_UPDATE_STATUS: (pickupId: number) => `/pickup/pharmacy/${pickupId}/status`,
+      PHARMACY_COMPLETE: (pickupId: number) => `/pickup/pharmacy/${pickupId}/complete`,
+      PHARMACY_CANCEL: (pickupId: number) => `/pickup/pharmacy/${pickupId}/cancel`,
     }
   }
 };
