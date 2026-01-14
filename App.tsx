@@ -3,6 +3,10 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet, Alert } from 'react-native';
 import LoginScreen from './src/screens/Auth/LoginScreen';
 import SignUpScreen from './src/screens/Auth/SignUpScreen';
+import PharmacyLoginScreen from './src/screens/Auth/PharmacyLoginScreen';
+import PharmacySignUpScreen from './src/screens/Auth/PharmacySignUpScreen';
+import PharmacyDashboardScreen from './src/screens/Pharmacy/PharmacyDashboardScreen';
+import PharmacyPickupRequestsScreen from './src/screens/Pharmacy/PharmacyPickupRequestsScreen';
 import HomeScreen from './src/screens/home/HomeScreen';
 import PetProfileCreationScreen from './src/screens/pet/PetProfileCreationScreen';
 import PetSuccessScreen from './src/screens/pet/PetSuccessScreen';
@@ -38,6 +42,10 @@ import eventEmitter from './src/utils/eventEmitter';
 type Screen =
   | 'login'
   | 'signup'
+  | 'pharmacyLogin'
+  | 'pharmacySignUp'
+  | 'pharmacyDashboard'
+  | 'pharmacyPickupRequests'
   | 'home'
   | 'petProfile'
   | 'petSuccess'
@@ -66,6 +74,7 @@ type Screen =
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [userData, setUserData] = useState<User | null>(null);
+  const [pharmacyData, setPharmacyData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
   const [healthCheckId, setHealthCheckId] = useState<number | null>(null);
@@ -103,9 +112,19 @@ export default function App() {
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
 
   const handleLoginSuccess = (user: User) => {
+    console.log('[App] 일반 사용자 로그인 성공');
+    console.log('[App] 사용자 데이터:', JSON.stringify(user, null, 2));
     setUserData(user);
+    console.log('[App] currentScreen을 home으로 변경');
     setCurrentScreen('home');
   };
+
+  // 현재 화면 상태 추적
+  useEffect(() => {
+    console.log('[App] 화면 변경됨:', currentScreen);
+    console.log('[App] userData 존재:', !!userData);
+    console.log('[App] pharmacyData 존재:', !!pharmacyData);
+  }, [currentScreen, userData, pharmacyData]);
 
   // 앱 시작 시 저장된 토큰 확인
   useEffect(() => {
@@ -134,6 +153,7 @@ export default function App() {
     const handleLogoutEvent = () => {
       console.log('로그아웃 이벤트 수신: 로그인 화면으로 이동');
       setUserData(null);
+      setPharmacyData(null);
       setCurrentScreen('login');
     };
 
@@ -150,7 +170,14 @@ export default function App() {
     const { logout } = await import('./src/services/auth');
     await logout();
     setUserData(null);
+    setPharmacyData(null);
     setCurrentScreen('login');
+  };
+
+  // 약국 로그아웃
+  const handlePharmacyLogout = () => {
+    setPharmacyData(null);
+    setCurrentScreen('pharmacyLogin');
   };
 
   // 반려동물 목록 화면으로 이동 (프로필 탭 클릭 시)
@@ -556,15 +583,19 @@ export default function App() {
   };
 
   // 인증이 필요한 화면인지 확인
-  const requiresAuth = currentScreen !== 'login' && currentScreen !== 'signup';
+  const requiresAuth =
+    currentScreen !== 'login' &&
+    currentScreen !== 'signup' &&
+    currentScreen !== 'pharmacyLogin' &&
+    currentScreen !== 'pharmacySignUp';
 
   // 인증이 필요한데 userData가 없으면 로그인 화면으로 리다이렉트
   useEffect(() => {
-    if (requiresAuth && !userData && !isLoading) {
+    if (requiresAuth && !userData && !pharmacyData && !isLoading) {
       console.log('인증이 필요하지만 사용자 정보가 없음. 로그인 화면으로 이동');
       setCurrentScreen('login');
     }
-  }, [requiresAuth, userData, isLoading]);
+  }, [requiresAuth, userData, pharmacyData, isLoading]);
 
   // 로딩 중일 때 스플래시 화면 표시
   if (isLoading) {
@@ -580,16 +611,51 @@ export default function App() {
       {currentScreen === 'login' ? (
         <LoginScreen
           onNavigateToSignUp={() => setCurrentScreen('signup')}
+          onNavigateToPharmacyLogin={() => setCurrentScreen('pharmacyLogin')}
           onLoginSuccess={handleLoginSuccess}
         />
       ) : currentScreen === 'signup' ? (
         <SignUpScreen
           onNavigateToLogin={() => setCurrentScreen('login')}
+          onNavigateToPharmacySignUp={() => setCurrentScreen('pharmacySignUp')}
         />
-      ) : !userData ? (
-        // userData가 없으면 로그인 화면으로 (이중 보안)
+      ) : currentScreen === 'pharmacyLogin' ? (
+        <PharmacyLoginScreen
+          onNavigateBack={() => setCurrentScreen('login')}
+          onNavigateToSignUp={() => setCurrentScreen('pharmacySignUp')}
+          onLoginSuccess={(data) => {
+            console.log('[App] onLoginSuccess 호출됨');
+            console.log('[App] 받은 데이터:', JSON.stringify(data, null, 2));
+            console.log('[App] pharmacyData 설정 시작');
+            setPharmacyData(data);
+            console.log('[App] currentScreen을 pharmacyDashboard로 변경');
+            setCurrentScreen('pharmacyDashboard');
+            console.log('[App] 화면 전환 완료');
+          }}
+        />
+      ) : currentScreen === 'pharmacySignUp' ? (
+        <PharmacySignUpScreen
+          onNavigateToLogin={() => setCurrentScreen('pharmacyLogin')}
+          onSignUpSuccess={() => {
+            Alert.alert('회원가입 완료', '로그인 화면으로 이동합니다.', [
+              { text: '확인', onPress: () => setCurrentScreen('pharmacyLogin') }
+            ]);
+          }}
+        />
+      ) : currentScreen === 'pharmacyDashboard' ? (
+        <PharmacyDashboardScreen
+          onLogout={handlePharmacyLogout}
+          onNavigateToPickupRequests={() => setCurrentScreen('pharmacyPickupRequests')}
+        />
+      ) : currentScreen === 'pharmacyPickupRequests' ? (
+        <PharmacyPickupRequestsScreen
+          onNavigateBack={() => setCurrentScreen('pharmacyDashboard')}
+        />
+      ) : !userData && !pharmacyData ? (
+        // userData와 pharmacyData가 모두 없으면 로그인 화면으로 (이중 보안)
         <LoginScreen
           onNavigateToSignUp={() => setCurrentScreen('signup')}
+          onNavigateToPharmacyLogin={() => setCurrentScreen('pharmacyLogin')}
           onLoginSuccess={handleLoginSuccess}
         />
       ) : currentScreen === 'petList' ? (

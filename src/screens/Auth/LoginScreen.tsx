@@ -23,9 +23,11 @@ import { LoginRequest, User } from '../../types/auth';
 interface LoginScreenProps {
   onNavigateToSignUp: () => void;
   onLoginSuccess: (user: User) => void;
+  onNavigateBack?: () => void;
+  onNavigateToPharmacyLogin?: () => void;
 }
 
-const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) => {
+const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess, onNavigateBack, onNavigateToPharmacyLogin }: LoginScreenProps) => {
   // 입력 필드 상태
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +35,6 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
   // UI 상태
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginType, setLoginType] = useState<'user' | 'pharmacy'>('user');
 
   // 에러 상태
   const [emailError, setEmailError] = useState('');
@@ -75,6 +76,9 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
    * 로그인 처리
    */
   const handleLogin = async () => {
+    console.log('[Login] 로그인 시도 시작');
+    console.log('[Login] 이메일:', email);
+
     // 에러 초기화
     setGeneralError('');
 
@@ -83,10 +87,12 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
     const isPasswordValid = validatePassword(password);
 
     if (!isEmailValid || !isPasswordValid) {
+      console.log('[Login] 유효성 검사 실패');
       return;
     }
 
     setLoading(true);
+    console.log('[Login] API 요청 시작');
 
     try {
       const requestData: LoginRequest = {
@@ -95,27 +101,32 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
       };
 
       const response = await login(requestData);
-      console.log('로그인 응답:', response)
+      console.log('[Login] 로그인 응답:', JSON.stringify(response, null, 2));
 
       if (response.success) {
         // 로그인 성공 - 바로 페이지 이동
-        console.log('로그인 성공! 사용자 데이터:', response.data.user);
-        console.log('onLoginSuccess 함수 호출 시작');
+        console.log('[Login] 로그인 성공! 사용자 데이터:', response.data.user);
+        console.log('[Login] onLoginSuccess 함수 호출 시작');
         const user = response.data.user;
-        console.log('전달할 user:', user);
+        console.log('[Login] 전달할 user:', JSON.stringify(user, null, 2));
         onLoginSuccess(user);
-        console.log('onLoginSuccess 함수 호출 완료');
+        console.log('[Login] onLoginSuccess 함수 호출 완료');
       } else {
-        console.log('response.success가 false입니다:', response);
+        console.error('[Login] response.success가 false입니다:', response);
+        setGeneralError('로그인에 실패했습니다.');
       }
     } catch (error: any) {
-      console.error('로그인 에러:', error);
+      console.error('[Login] 로그인 예외 발생');
+      console.error('[Login] 에러 타입:', error.name);
+      console.error('[Login] 에러 메시지:', error.message);
+      console.error('[Login] 에러 스택:', error.stack);
 
       let errorMessage = '잠시 후 다시 시도해주세요.';
 
       // HTTP 상태 코드에 따른 에러 처리
       if (error.response) {
         const statusCode = error.response.status;
+        console.error('[Login] HTTP 상태 코드:', statusCode);
 
         if (statusCode === 401 || statusCode === 403) {
           // 자격 증명 불일치
@@ -129,7 +140,12 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
         }
       } else if (error.message) {
         // 네트워크 오류 등
-        errorMessage = '잠시 후 다시 시도해주세요.';
+        console.error('[Login] 네트워크 오류 또는 기타 에러');
+        if (error.message === 'Network request failed') {
+          errorMessage = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.';
+        } else {
+          errorMessage = '잠시 후 다시 시도해주세요.';
+        }
       }
 
       setGeneralError(errorMessage);
@@ -150,8 +166,14 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* 헤더 - 뒤로가기 버튼 없음 (첫 화면) */}
-      <View style={styles.header} />
+      {/* 헤더 */}
+      <View style={styles.header}>
+        {onNavigateBack && (
+          <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={28} color="#333" />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -167,51 +189,17 @@ const LoginScreen = ({ onNavigateToSignUp, onLoginSuccess }: LoginScreenProps) =
             <Text style={styles.subtitle}>오신 것을 환영해요!</Text>
           </View>
 
-          {/* 로그인 타입 토글 */}
-          <View style={styles.toggleContainer}>
+          {/* 약국 로그인 링크 */}
+          {onNavigateToPharmacyLogin && (
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                styles.toggleButtonLeft,
-                loginType === 'user' && styles.toggleButtonActive,
-              ]}
-              onPress={() => setLoginType('user')}
+              style={styles.pharmacyLinkContainer}
+              onPress={onNavigateToPharmacyLogin}
               disabled={loading}
             >
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color={loginType === 'user' ? '#FF8A3D' : '#999'}
-              />
-              <Text style={[
-                styles.toggleButtonText,
-                loginType === 'user' && styles.toggleButtonTextActive,
-              ]}>
-                사용자 로그인
-              </Text>
+              <Ionicons name="storefront-outline" size={18} color="#FF8A3D" />
+              <Text style={styles.pharmacyLinkText}>약국 관리자이신가요?</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                styles.toggleButtonRight,
-                loginType === 'pharmacy' && styles.toggleButtonActive,
-              ]}
-              onPress={() => setLoginType('pharmacy')}
-              disabled={loading}
-            >
-              <Ionicons
-                name="storefront-outline"
-                size={20}
-                color={loginType === 'pharmacy' ? '#FF8A3D' : '#999'}
-              />
-              <Text style={[
-                styles.toggleButtonText,
-                loginType === 'pharmacy' && styles.toggleButtonTextActive,
-              ]}>
-                약국 로그인
-              </Text>
-            </TouchableOpacity>
-          </View>
+          )}
 
           {/* 전체 에러 메시지 */}
           {generalError ? (
@@ -347,6 +335,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+  },
   scrollContent: {
     flexGrow: 1,
   },
@@ -372,6 +365,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+  },
+  pharmacyLinkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  pharmacyLinkText: {
+    fontSize: 14,
+    color: '#FF8A3D',
+    fontWeight: '600',
   },
   toggleContainer: {
     flexDirection: 'row',

@@ -26,9 +26,10 @@ type SignUpStep = 'email' | 'password' | 'passwordConfirm' | 'nickname';
 interface SignUpScreenProps {
   onNavigateToLogin: () => void;
   onSignUpSuccess?: (user: User) => void;
+  onNavigateToPharmacySignUp?: () => void;
 }
 
-const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
+const SignUpScreen = ({ onNavigateToLogin, onNavigateToPharmacySignUp }: SignUpScreenProps) => {
   // 현재 단계
   const [currentStep, setCurrentStep] = useState<SignUpStep>('email');
 
@@ -433,6 +434,18 @@ const SignUpScreen = ({ onNavigateToLogin }: SignUpScreenProps) => {
             <Text style={styles.subtitle}>오신 것을 환영해요!</Text>
           </View>
 
+          {/* 약국 회원가입 링크 */}
+          {onNavigateToPharmacySignUp && currentStep === 'email' && (
+            <TouchableOpacity
+              style={styles.pharmacyLinkContainer}
+              onPress={onNavigateToPharmacySignUp}
+              disabled={loading}
+            >
+              <Ionicons name="storefront-outline" size={18} color="#FF8A3D" />
+              <Text style={styles.pharmacyLinkText}>약국 관리자이신가요?</Text>
+            </TouchableOpacity>
+          )}
+
           {/* 현재 단계 렌더링 */}
           {renderCurrentStep()}
         </View>
@@ -502,7 +515,7 @@ const styles = StyleSheet.create({
     paddingTop: 32,
   },
   titleContainer: {
-    marginBottom: 40,
+    marginBottom: 24,
   },
   title: {
     fontSize: 24,
@@ -519,6 +532,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+  },
+  pharmacyLinkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 24,
+  },
+  pharmacyLinkText: {
+    fontSize: 14,
+    color: '#FF8A3D',
+    fontWeight: '600',
   },
   inputContainer: {
     marginBottom: 20,
