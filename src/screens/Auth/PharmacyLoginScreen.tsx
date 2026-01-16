@@ -109,11 +109,17 @@ const PharmacyLoginScreen = ({
       if (data.success && data.data) {
         console.log('[PharmacyLogin] 로그인 성공, 토큰 저장 시작');
 
-        // 토큰 저장
-        await AsyncStorage.setItem('pharmacyToken', data.data.token);
+        // 기존 pharmacyToken 삭제 (마이그레이션)
+        await AsyncStorage.removeItem('pharmacyToken');
+
+        // 토큰 저장 (authToken 키 사용하여 API 클라이언트와 호환)
+        await AsyncStorage.setItem('authToken', data.data.token);
         await AsyncStorage.setItem('pharmacyData', JSON.stringify(data.data.pharmacy));
 
+        // 토큰 저장 확인
+        const savedToken = await AsyncStorage.getItem('authToken');
         console.log('[PharmacyLogin] 토큰 저장 완료');
+        console.log('[PharmacyLogin] 저장된 토큰 확인:', savedToken ? `토큰 있음 (길이: ${savedToken.length})` : '토큰 없음');
         console.log('[PharmacyLogin] 약국 데이터:', data.data.pharmacy);
         console.log('[PharmacyLogin] onLoginSuccess 호출 시작');
 

@@ -181,10 +181,12 @@ const ReviewWriteScreen: React.FC<ReviewWriteScreenProps> = ({
           {
             text: '확인',
             onPress: () => {
+              // 리뷰 상세 화면으로 이동
               if (onReviewCreated) {
                 onReviewCreated(reviewId);
+              } else {
+                onNavigateBack();
               }
-              onNavigateBack();
             },
           },
         ]);
@@ -199,12 +201,12 @@ const ReviewWriteScreen: React.FC<ReviewWriteScreenProps> = ({
           {
             text: '확인',
             onPress: () => {
-              // 리뷰 생성 완료 콜백 호출
+              // 리뷰 상세 화면으로 이동
               if (onReviewCreated) {
                 onReviewCreated(resultReview.reviewId);
+              } else {
+                onNavigateBack();
               }
-              // 상세 화면으로 돌아가기
-              onNavigateBack();
             },
           },
         ]);

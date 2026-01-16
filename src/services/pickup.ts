@@ -156,14 +156,63 @@ class PickupService {
     data: UpdatePickupStatusData
   ): Promise<PickupRequest> {
     try {
-      const response = await apiClient.put<{
+      console.log('========================================');
+      console.log('[PickupService] 상태 업데이트 시작');
+      console.log('[PickupService] pickupId:', pickupId);
+      console.log('[PickupService] data:', JSON.stringify(data, null, 2));
+      
+      // 약국 토큰 가져오기
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const pharmacyToken = await AsyncStorage.getItem('authToken');
+      if (!pharmacyToken) {
+        console.error('[PickupService] 약국 토큰이 없습니다!');
+        throw new Error('약국 인증 토큰이 필요합니다.');
+      }
+
+      console.log('[PickupService] 약국 토큰 확인:', pharmacyToken ? `토큰 있음 (길이: ${pharmacyToken.length}, 앞 20자: ${pharmacyToken.substring(0, 20)}...)` : '토큰 없음');
+      
+      const apiUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_UPDATE_STATUS(pickupId)}`;
+      console.log('[PickupService] API 엔드포인트:', API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_UPDATE_STATUS(pickupId));
+      console.log('[PickupService] BASE_URL:', API_CONFIG.BASE_URL);
+      console.log('[PickupService] 최종 API URL:', apiUrl);
+      console.log('[PickupService] 요청 메서드: PUT');
+      console.log('[PickupService] 요청 데이터:', JSON.stringify(data, null, 2));
+
+      const axios = require('axios');
+      const response = await axios.put<{
         success: boolean;
         data: PickupRequest;
         message: string;
-      }>(API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_UPDATE_STATUS(pickupId), data);
+      }>(
+        apiUrl,
+        data,
+        {
+          headers: {
+            'Authorization': `Bearer ${pharmacyToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
+      console.log('[PickupService] HTTP 응답 받음');
+      console.log('[PickupService] 응답 상태:', response.status);
+      console.log('[PickupService] 응답 데이터:', JSON.stringify(response.data, null, 2));
+      console.log('[PickupService] 상태 업데이트 성공');
+      console.log('========================================');
+      
       return response.data.data;
     } catch (error: any) {
+      console.error('========================================');
+      console.error('[PickupService] 상태 업데이트 실패');
+      console.error('[PickupService] 에러 타입:', error?.constructor?.name);
+      console.error('[PickupService] 에러 메시지:', error?.message);
+      
+      if (error?.response) {
+        console.error('[PickupService] 응답 상태:', error.response.status);
+        console.error('[PickupService] 응답 데이터:', JSON.stringify(error.response.data, null, 2));
+      }
+      console.error('========================================');
+      
       throw new Error(
         error.response?.data?.message || '상태 업데이트에 실패했습니다.'
       );
@@ -175,14 +224,39 @@ class PickupService {
    */
   async completePickup(pickupId: number): Promise<PickupRequest> {
     try {
-      const response = await apiClient.put<{
+      console.log('[PickupService] 픽업 완료 처리 시작. pickupId:', pickupId);
+
+      // 약국 토큰 가져오기
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const pharmacyToken = await AsyncStorage.getItem('authToken');
+      if (!pharmacyToken) {
+        console.error('[PickupService] 약국 토큰이 없습니다!');
+        throw new Error('약국 인증 토큰이 필요합니다.');
+      }
+
+      const apiUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_COMPLETE(pickupId)}`;
+      console.log('[PickupService] API URL:', apiUrl);
+
+      const axios = require('axios');
+      const response = await axios.put<{
         success: boolean;
         data: PickupRequest;
         message: string;
-      }>(API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_COMPLETE(pickupId));
+      }>(
+        apiUrl,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${pharmacyToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
+      console.log('[PickupService] 픽업 완료 처리 성공');
       return response.data.data;
     } catch (error: any) {
+      console.error('[PickupService] 픽업 완료 처리 실패:', error.message);
       throw new Error(
         error.response?.data?.message || '픽업 완료 처리에 실패했습니다.'
       );
@@ -197,16 +271,39 @@ class PickupService {
     cancelReason: string
   ): Promise<PickupRequest> {
     try {
-      const response = await apiClient.put<{
+      console.log('[PickupService] 약국 픽업 취소 시작. pickupId:', pickupId);
+
+      // 약국 토큰 가져오기
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const pharmacyToken = await AsyncStorage.getItem('authToken');
+      if (!pharmacyToken) {
+        console.error('[PickupService] 약국 토큰이 없습니다!');
+        throw new Error('약국 인증 토큰이 필요합니다.');
+      }
+
+      const apiUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_CANCEL(pickupId)}`;
+      console.log('[PickupService] API URL:', apiUrl);
+
+      const axios = require('axios');
+      const response = await axios.put<{
         success: boolean;
         data: PickupRequest;
         message: string;
-      }>(API_CONFIG.ENDPOINTS.PICKUP.PHARMACY_CANCEL(pickupId), {
-        cancelReason,
-      });
+      }>(
+        apiUrl,
+        { cancelReason },
+        {
+          headers: {
+            'Authorization': `Bearer ${pharmacyToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
+      console.log('[PickupService] 약국 픽업 취소 성공');
       return response.data.data;
     } catch (error: any) {
+      console.error('[PickupService] 약국 픽업 취소 실패:', error.message);
       throw new Error(
         error.response?.data?.message || '픽업 취소에 실패했습니다.'
       );

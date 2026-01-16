@@ -247,13 +247,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       if (!hospital.latitude || !hospital.longitude) return '';
       const isSelected = selectedHospital?.hospitalId === hospital.hospitalId;
       const hospitalName = hospital.name.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+      // 하얀색 배경, 주황색 이모티콘: 기본 #FF9800, 선택 시 #FF8A3D
+      const iconColor = isSelected ? '#FF8A3D' : '#FF9800';
+      const hospitalIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 2L2 6V14H6V10H10V14H14V6L8 2Z" fill="' + iconColor + '" stroke="' + iconColor + '" stroke-width="1" stroke-linejoin="round"/><path d="M8 6V10M6 8H10" stroke="' + iconColor + '" stroke-width="1.5" stroke-linecap="round"/></svg>';
       return `
         var hospitalMarker${index} = new naver.maps.Marker({
           position: new naver.maps.LatLng(${hospital.latitude}, ${hospital.longitude}),
           map: window.map,
           title: '${hospitalName}',
           icon: {
-            content: '<div style="background-color: ${isSelected ? '#FF8A3D' : '#4CAF50'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div>',
+            content: '<div style="background-color: white; border-radius: 50%; width: 36px; height: 36px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">${hospitalIcon}</div>',
             anchor: new naver.maps.Point(0.5, 0.5)
           }
         });
@@ -280,13 +283,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       if (!pharmacy.latitude || !pharmacy.longitude) return '';
       const isSelected = selectedPharmacy?.pharmacyId === pharmacy.pharmacyId;
       const pharmacyName = pharmacy.name.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+      // 주황 계열 배경: 기본 #FF9800, 선택 시 #FF8A3D
+      const backgroundColor = isSelected ? '#FF8A3D' : '#FF9800';
+      const pharmacyIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" fill="none" stroke="white" stroke-width="1.5"/><path d="M8 4V12M5 8H11" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
       return `
         var pharmacyMarker${index} = new naver.maps.Marker({
           position: new naver.maps.LatLng(${pharmacy.latitude}, ${pharmacy.longitude}),
           map: window.map,
           title: '${pharmacyName}',
           icon: {
-            content: '<div style="background-color: ${isSelected ? '#FF8A3D' : '#9C27B0'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div>',
+            content: '<div style="background-color: ${backgroundColor}; border-radius: 50%; width: 36px; height: 36px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">${pharmacyIcon}</div>',
             anchor: new naver.maps.Point(0.5, 0.5)
           }
         });
@@ -520,12 +526,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         hospitals.forEach((hospital, index) => {
           if (!hospital.latitude || !hospital.longitude) return;
           const isSelected = selectedHospital?.hospitalId === hospital.hospitalId;
+          // 하얀색 배경, 주황색 이모티콘: 기본 #FF9800, 선택 시 #FF8A3D
+          const iconColor = isSelected ? '#FF8A3D' : '#FF9800';
+          const hospitalIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 2L2 6V14H6V10H10V14H14V6L8 2Z" fill="${iconColor}" stroke="${iconColor}" stroke-width="1" stroke-linejoin="round"/><path d="M8 6V10M6 8H10" stroke="${iconColor}" stroke-width="1.5" stroke-linecap="round"/></svg>`;
           const marker = new (window as any).naver.maps.Marker({
             position: new (window as any).naver.maps.LatLng(hospital.latitude, hospital.longitude),
             map: map,
             title: hospital.name,
             icon: {
-              content: `<div style="background-color: ${isSelected ? '#FF8A3D' : '#4CAF50'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div>`,
+              content: `<div style="background-color: white; border-radius: 50%; width: 36px; height: 36px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">${hospitalIcon}</div>`,
               anchor: new (window as any).naver.maps.Point(0.5, 0.5),
             },
           });
@@ -543,12 +552,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         pharmacies.forEach((pharmacy, index) => {
           if (!pharmacy.latitude || !pharmacy.longitude) return;
           const isSelected = selectedPharmacy?.pharmacyId === pharmacy.pharmacyId;
+          // 주황 계열 배경: 기본 #FF9800, 선택 시 #FF8A3D
+          const backgroundColor = isSelected ? '#FF8A3D' : '#FF9800';
+          const pharmacyIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" fill="none" stroke="white" stroke-width="1.5"/><path d="M8 4V12M5 8H11" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
           const marker = new (window as any).naver.maps.Marker({
             position: new (window as any).naver.maps.LatLng(pharmacy.latitude, pharmacy.longitude),
             map: map,
             title: pharmacy.name,
             icon: {
-              content: `<div style="background-color: ${isSelected ? '#FF8A3D' : '#9C27B0'}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div>`,
+              content: `<div style="background-color: ${backgroundColor}; border-radius: 50%; width: 36px; height: 36px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">${pharmacyIcon}</div>`,
               anchor: new (window as any).naver.maps.Point(0.5, 0.5),
             },
           });

@@ -1,9 +1,9 @@
 /**
  * PickupPharmacySelectScreen
- * 픽업 약국 선택 화면 (더미 데이터)
+ * 픽업 약국 선택 화면
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,14 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { PickupProduct } from '../../types/pickup';
+import { VeterinaryPharmacy } from '../../types/pharmacy';
+import pharmacyService from '../../services/pharmacy';
 
 interface SelectedProduct {
   product: PickupProduct;
@@ -25,63 +30,8 @@ interface PickupPharmacySelectScreenProps {
   selectedProducts: SelectedProduct[];
   onNavigateBack: () => void;
   onConfirmPickup?: (pharmacyId: string) => void;
-  onNavigateToRequestConfirm?: (pharmacy: DummyPharmacy) => void;
+  onNavigateToRequestConfirm?: (pharmacy: VeterinaryPharmacy) => void;
 }
-
-// 더미 약국 데이터
-export interface DummyPharmacy {
-  id: string;
-  name: string;
-  address: string;
-  distance: string;
-  phone: string;
-  openHours: string;
-  isOpen: boolean;
-  hasStock: boolean;
-}
-
-const dummyPharmacies: DummyPharmacy[] = [
-  {
-    id: 'pharmacy_1',
-    name: '메디팜 동물약국',
-    address: '서울 강남구 테헤란로 123',
-    distance: '0.5km',
-    phone: '02-1234-5678',
-    openHours: '09:00 - 21:00',
-    isOpen: true,
-    hasStock: true,
-  },
-  {
-    id: 'pharmacy_2',
-    name: '펫케어 약국',
-    address: '서울 강남구 역삼동 456-7',
-    distance: '1.2km',
-    phone: '02-2345-6789',
-    openHours: '10:00 - 20:00',
-    isOpen: true,
-    hasStock: true,
-  },
-  {
-    id: 'pharmacy_3',
-    name: '애니팜 약국',
-    address: '서울 서초구 서초대로 789',
-    distance: '2.3km',
-    phone: '02-3456-7890',
-    openHours: '09:00 - 19:00',
-    isOpen: false,
-    hasStock: true,
-  },
-  {
-    id: 'pharmacy_4',
-    name: '반려동물 헬스케어 약국',
-    address: '서울 송파구 올림픽로 321',
-    distance: '3.5km',
-    phone: '02-4567-8901',
-    openHours: '08:00 - 22:00',
-    isOpen: true,
-    hasStock: false,
-  },
-];
 
 const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
   selectedProducts,
@@ -89,7 +39,160 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
   onConfirmPickup,
   onNavigateToRequestConfirm,
 }) => {
-  const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<number | null>(null);
+  const [pharmacies, setPharmacies] = useState<VeterinaryPharmacy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<VeterinaryPharmacy[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  // 위치 기반 약국 검색
+  useEffect(() => {
+    const loadPharmacies = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 위치 권한 요청
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('위치 권한이 거부되어 기본 위치(서울시청) 사용');
+          // 기본 위치로 약국 검색
+          const defaultLocation = { latitude: 37.5665, longitude: 126.9780 };
+          const nearbyPharmacies = await pharmacyService.findNearby(
+            defaultLocation.latitude,
+            defaultLocation.longitude,
+            10 // 10km 반경
+          );
+          setPharmacies(nearbyPharmacies);
+          setLoading(false);
+          return;
+        }
+
+        // 현재 위치 가져오기
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const currentUserLocation = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+
+        setUserLocation(currentUserLocation);
+        console.log('사용자 위치:', currentUserLocation);
+
+        // 주변 약국 검색 (10km 반경)
+        const nearbyPharmacies = await pharmacyService.findNearby(
+          currentUserLocation.latitude,
+          currentUserLocation.longitude,
+          10
+        );
+
+        // 거리순으로 정렬 (API에서 이미 정렬되어 있지만 확실히 하기 위해)
+        const sortedPharmacies = nearbyPharmacies.sort((a, b) => {
+          const distanceA = a.distance || 999;
+          const distanceB = b.distance || 999;
+          return distanceA - distanceB;
+        });
+
+        console.log('주변 약국 조회 완료:', sortedPharmacies.length, '개');
+        setPharmacies(sortedPharmacies);
+      } catch (err: any) {
+        console.error('약국 검색 실패:', err);
+        setError(err.message || '약국 검색에 실패했습니다.');
+        Alert.alert('오류', '주변 약국을 불러오는데 실패했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPharmacies();
+  }, []);
+
+  // 거리 계산 함수 (Haversine 공식)
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number => {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // 약국 검색
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const results = await pharmacyService.searchByKeyword(query.trim(), 20);
+      
+      // 위치 정보가 있으면 거리 계산 및 정렬
+      if (userLocation && results.length > 0) {
+        const resultsWithDistance = results.map(pharmacy => {
+          if (pharmacy.latitude && pharmacy.longitude) {
+            const distance = calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              parseFloat(pharmacy.latitude.toString()),
+              parseFloat(pharmacy.longitude.toString())
+            );
+            return {
+              ...pharmacy,
+              distance,
+            };
+          }
+          return pharmacy;
+        });
+        
+        // 거리순으로 정렬
+        resultsWithDistance.sort((a, b) => {
+          const distanceA = a.distance || 999;
+          const distanceB = b.distance || 999;
+          return distanceA - distanceB;
+        });
+        
+        setSearchResults(resultsWithDistance);
+      } else {
+        setSearchResults(results);
+      }
+    } catch (err: any) {
+      console.error('약국 검색 실패:', err);
+      Alert.alert('오류', '약국 검색에 실패했습니다.');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 약국 선택 핸들러 (검색 결과 또는 주변 약국)
+  const handlePharmacySelect = (pharmacy: VeterinaryPharmacy) => {
+    setSelectedPharmacy(pharmacy.pharmacyId);
+    
+    // 바로 픽업 요청 확인 페이지로 이동
+    if (onNavigateToRequestConfirm) {
+      onNavigateToRequestConfirm(pharmacy);
+    }
+  };
 
   // PICK-11: 약국 선택 시 픽업 요청 확인 페이지로 이동
   const handleConfirmPickup = () => {
@@ -98,7 +201,7 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
       return;
     }
 
-    const pharmacy = dummyPharmacies.find(p => p.id === selectedPharmacy);
+    const pharmacy = [...pharmacies, ...searchResults].find(p => p.pharmacyId === selectedPharmacy);
     if (!pharmacy) return;
 
     // 픽업 요청 확인 페이지로 이동
@@ -106,16 +209,6 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
       onNavigateToRequestConfirm(pharmacy);
     } else {
       // 기존 동작 유지 (호환성)
-      if (!pharmacy.isOpen) {
-        Alert.alert('알림', '현재 영업시간이 아닙니다.');
-        return;
-      }
-
-      if (!pharmacy.hasStock) {
-        Alert.alert('알림', '해당 약국에 재고가 없습니다. 다른 약국을 선택해주세요.');
-        return;
-      }
-
       Alert.alert(
         '픽업 예약 확인',
         `${pharmacy.name}에서 픽업하시겠습니까?\n\n선택한 약품: ${selectedProducts.length}개`,
@@ -125,7 +218,7 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
             text: '확인',
             onPress: () => {
               if (onConfirmPickup) {
-                onConfirmPickup(selectedPharmacy);
+                onConfirmPickup(selectedPharmacy.toString());
               } else {
                 Alert.alert('픽업 예약 완료', '약국에서 픽업 준비가 완료되면 알림을 보내드립니다.');
                 onNavigateBack();
@@ -137,33 +230,44 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
     }
   };
 
+  // 거리 포맷팅
+  const formatDistance = (distance?: number): string => {
+    if (!distance) return '거리 정보 없음';
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)}m`;
+    }
+    return `${distance.toFixed(1)}km`;
+  };
+
   // 약국 카드 렌더링
-  const renderPharmacyCard = (pharmacy: DummyPharmacy) => {
-    const isSelected = selectedPharmacy === pharmacy.id;
+  const renderPharmacyCard = (pharmacy: VeterinaryPharmacy, isFromSearch: boolean = false) => {
+    const isSelected = selectedPharmacy === pharmacy.pharmacyId;
 
     return (
       <TouchableOpacity
-        key={pharmacy.id}
+        key={pharmacy.pharmacyId}
         style={[
           styles.pharmacyCard,
           isSelected && styles.pharmacyCardSelected,
-          !pharmacy.isOpen && styles.pharmacyCardClosed,
         ]}
-        onPress={() => setSelectedPharmacy(pharmacy.id)}
-        disabled={!pharmacy.isOpen}
+        onPress={() => {
+          if (isFromSearch && onNavigateToRequestConfirm) {
+            // 검색 결과에서 선택 시 바로 픽업 요청 확인 페이지로 이동
+            handlePharmacySelect(pharmacy);
+          } else {
+            setSelectedPharmacy(pharmacy.pharmacyId);
+          }
+        }}
       >
         {/* 선택 체크 */}
         <View style={styles.pharmacyHeader}>
           <View style={styles.pharmacyInfo}>
-            <Text style={[
-              styles.pharmacyName,
-              !pharmacy.isOpen && styles.textDisabled,
-            ]}>
+            <Text style={styles.pharmacyName}>
               {pharmacy.name}
             </Text>
             <View style={styles.distanceBadge}>
               <Ionicons name="location" size={12} color="#666" />
-              <Text style={styles.distanceText}>{pharmacy.distance}</Text>
+              <Text style={styles.distanceText}>{formatDistance(pharmacy.distance)}</Text>
             </View>
           </View>
 
@@ -177,46 +281,34 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
         {/* 주소 */}
         <View style={styles.pharmacyDetail}>
           <Ionicons name="business" size={14} color="#666" />
-          <Text style={[styles.pharmacyDetailText, !pharmacy.isOpen && styles.textDisabled]}>
+          <Text style={styles.pharmacyDetailText}>
             {pharmacy.address}
+            {pharmacy.addressDetail && ` ${pharmacy.addressDetail}`}
           </Text>
         </View>
 
         {/* 전화번호 */}
-        <View style={styles.pharmacyDetail}>
-          <Ionicons name="call" size={14} color="#666" />
-          <Text style={[styles.pharmacyDetailText, !pharmacy.isOpen && styles.textDisabled]}>
-            {pharmacy.phone}
-          </Text>
-        </View>
-
-        {/* 영업시간 */}
-        <View style={styles.pharmacyDetail}>
-          <Ionicons name="time" size={14} color="#666" />
-          <Text style={[styles.pharmacyDetailText, !pharmacy.isOpen && styles.textDisabled]}>
-            {pharmacy.openHours}
-          </Text>
-        </View>
+        {pharmacy.phone && (
+          <View style={styles.pharmacyDetail}>
+            <Ionicons name="call" size={14} color="#666" />
+            <Text style={styles.pharmacyDetailText}>{pharmacy.phone}</Text>
+          </View>
+        )}
 
         {/* 상태 배지 */}
         <View style={styles.statusBadges}>
-          {pharmacy.isOpen ? (
+          {pharmacy.isLateNight && (
             <View style={styles.openBadge}>
-              <Text style={styles.openBadgeText}>영업중</Text>
-            </View>
-          ) : (
-            <View style={styles.closedBadge}>
-              <Text style={styles.closedBadgeText}>영업종료</Text>
+              <Text style={styles.openBadgeText}>24시간</Text>
             </View>
           )}
-
-          {pharmacy.hasStock ? (
-            <View style={styles.stockBadge}>
-              <Text style={styles.stockBadgeText}>재고 있음</Text>
-            </View>
-          ) : (
-            <View style={styles.noStockBadge}>
-              <Text style={styles.noStockBadgeText}>약국 확인 필요</Text>
+          {pharmacy.ratingAverage !== undefined && pharmacy.ratingAverage > 0 && (
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={12} color="#FFB800" />
+              <Text style={styles.ratingText}>
+                {pharmacy.ratingAverage.toFixed(1)}
+                {pharmacy.reviewCount !== undefined && pharmacy.reviewCount > 0 && ` (${pharmacy.reviewCount})`}
+              </Text>
             </View>
           )}
         </View>
@@ -264,9 +356,123 @@ const PickupPharmacySelectScreen: React.FC<PickupPharmacySelectScreenProps> = ({
           </Text>
         </View>
 
+        {/* 검색창 */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="약국명 또는 주소로 검색"
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+          />
+          {isSearching && (
+            <ActivityIndicator size="small" color="#FF8A3D" style={styles.searchLoading} />
+          )}
+          {searchQuery.length > 0 && !isSearching && (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+              }}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* 검색 결과 */}
+        {searchQuery.length > 0 && (
+          <View style={styles.searchResultsContainer}>
+            <Text style={styles.sectionTitle}>
+              검색 결과 {searchResults.length > 0 && `(${searchResults.length}개)`}
+            </Text>
+            {isSearching ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#FF8A3D" />
+                <Text style={styles.loadingText}>검색 중...</Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              searchResults.map(pharmacy => renderPharmacyCard(pharmacy, true))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={48} color="#CCC" />
+                <Text style={styles.emptyText}>검색 결과가 없습니다.</Text>
+                <Text style={styles.emptySubText}>다른 검색어로 시도해주세요.</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* 약국 리스트 */}
-        <Text style={styles.sectionTitle}>주변 약국</Text>
-        {dummyPharmacies.map(renderPharmacyCard)}
+        {searchQuery.length === 0 && (
+          <>
+            <Text style={styles.sectionTitle}>주변 약국</Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF8A3D" />
+            <Text style={styles.loadingText}>주변 약국을 검색 중입니다...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color="#FF4444" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                setLoading(true);
+                setError(null);
+                // 다시 로드
+                const loadPharmacies = async () => {
+                  try {
+                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    const location = status === 'granted'
+                      ? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+                      : null;
+                    
+                    const currentUserLocation = location
+                      ? { latitude: location.coords.latitude, longitude: location.coords.longitude }
+                      : { latitude: 37.5665, longitude: 126.9780 };
+                    
+                    setUserLocation(currentUserLocation);
+                    
+                    const nearbyPharmacies = await pharmacyService.findNearby(
+                      currentUserLocation.latitude,
+                      currentUserLocation.longitude,
+                      10
+                    );
+                    
+                    const sortedPharmacies = nearbyPharmacies.sort((a, b) => {
+                      const distanceA = a.distance || 999;
+                      const distanceB = b.distance || 999;
+                      return distanceA - distanceB;
+                    });
+                    
+                    setPharmacies(sortedPharmacies);
+                  } catch (err: any) {
+                    setError(err.message || '약국 검색에 실패했습니다.');
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                loadPharmacies();
+              }}
+            >
+              <Text style={styles.retryButtonText}>다시 시도</Text>
+            </TouchableOpacity>
+          </View>
+        ) : pharmacies.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="location-outline" size={48} color="#CCC" />
+            <Text style={styles.emptyText}>주변에 약국이 없습니다.</Text>
+            <Text style={styles.emptySubText}>반경을 넓혀서 다시 검색해주세요.</Text>
+          </View>
+        ) : (
+          pharmacies.map(pharmacy => renderPharmacyCard(pharmacy, false))
+        )}
+          </>
+        )}
       </ScrollView>
 
       {/* 하단 버튼 */}
@@ -512,6 +718,103 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     marginRight: 8,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#FF4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#FF8A3D',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  emptySubText: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#999',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  ratingText: {
+    fontSize: 11,
+    color: '#FF9800',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    padding: 0,
+  },
+  searchLoading: {
+    marginLeft: 8,
+  },
+  clearButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  searchResultsContainer: {
+    marginBottom: 24,
   },
 });
 

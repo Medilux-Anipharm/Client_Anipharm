@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,54 +6,134 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
+  Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import pickupService from '../../services/pickup';
+import { PickupRequest, PickupStatus } from '../../types/pickup';
 
 interface PickupStatusScreenProps {
+  pickupId: number;
   onClose: () => void;
 }
 
-const PickupStatusScreen: React.FC<PickupStatusScreenProps> = ({ onClose }) => {
-  // 더미 픽업 요청 데이터
-  const dummyPickupRequest = {
-    id: 'REQ-2024-001',
-    status: 'pending', // pending, ready, completed
-    requestDate: '2024-01-06 13:30',
-    pharmacy: {
-      name: '우리동물약국 강남점',
-      phone: '02-1234-5678',
-      address: '서울시 강남구 테헤란로 123',
-    },
-    products: [
-      { name: '베토큐어 워머', quantity: 2 },
-      { name: '펫닥 프로바이오틱스', quantity: 1 },
-      { name: '덴티펫 구강 케어', quantity: 1 },
-    ],
-    estimatedPickupDate: '2024-01-09 (화)',
+const PickupStatusScreen: React.FC<PickupStatusScreenProps> = ({ pickupId, onClose }) => {
+  const [pickupRequest, setPickupRequest] = useState<PickupRequest | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 픽업 요청 데이터 로드
+  useEffect(() => {
+    const loadPickupRequest = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await pickupService.getPickupRequestDetail(pickupId);
+        setPickupRequest(data);
+      } catch (err: any) {
+        console.error('픽업 요청 조회 실패:', err);
+        setError(err.message || '픽업 요청 정보를 불러오는데 실패했습니다.');
+        Alert.alert('오류', '픽업 요청 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPickupRequest();
+  }, [pickupId]);
+
+  // 날짜 포맷팅
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}.${month}.${day} ${hours}:${minutes}`;
   };
 
-  const getStatusInfo = (status: string) => {
+  // 예상 픽업일 포맷팅
+  const formatEstimatedDate = (dateString?: string): string => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const weekday = weekdays[date.getDay()];
+    return `${year}.${month}.${day} (${weekday})`;
+  };
+
+  // 전화 걸기
+  const handleCall = () => {
+    if (pickupRequest?.pharmacy?.phone) {
+      Linking.openURL(`tel:${pickupRequest.pharmacy.phone}`);
+    } else {
+      Alert.alert('알림', '약국 전화번호가 없습니다.');
+    }
+  };
+
+  const getStatusInfo = (status: PickupStatus) => {
     switch (status) {
-      case 'pending':
+      case 'REQUESTED':
         return {
           icon: 'time-outline' as const,
-          color: '#FF9800',
-          text: '픽업 준비 중',
-          description: '약국에서 픽업을 준비하고 있습니다.',
+          color: '#2196F3',
+          text: '요청됨',
+          description: '픽업 요청이 접수되었습니다. 약국 확인 중입니다.',
         };
-      case 'ready':
+      case 'ACCEPTED':
         return {
           icon: 'checkmark-circle-outline' as const,
           color: '#4CAF50',
-          text: '픽업 준비 완료',
+          text: '수락됨',
+          description: '약국에서 픽업 요청을 수락했습니다.',
+        };
+      case 'WAITING':
+        return {
+          icon: 'hourglass-outline' as const,
+          color: '#FF9800',
+          text: '재고 대기',
+          description: '약품 재고를 준비하고 있습니다.',
+        };
+      case 'PREPARING':
+        return {
+          icon: 'build-outline' as const,
+          color: '#9C27B0',
+          text: '준비 중',
+          description: '약국에서 픽업을 준비하고 있습니다.',
+        };
+      case 'READY':
+        return {
+          icon: 'checkmark-done-outline' as const,
+          color: '#00BCD4',
+          text: '픽업 대기',
           description: '약국에서 픽업 대기 중입니다.',
         };
-      case 'completed':
+      case 'COMPLETED':
         return {
-          icon: 'checkbox-outline' as const,
-          color: '#2196F3',
+          icon: 'checkmark-done-circle' as const,
+          color: '#4CAF50',
           text: '픽업 완료',
           description: '픽업이 완료되었습니다.',
+        };
+      case 'REJECTED':
+        return {
+          icon: 'close-circle-outline' as const,
+          color: '#F44336',
+          text: '거절됨',
+          description: '약국에서 픽업 요청을 거절했습니다.',
+        };
+      case 'CANCELED':
+        return {
+          icon: 'ban-outline' as const,
+          color: '#9E9E9E',
+          text: '취소됨',
+          description: '픽업 요청이 취소되었습니다.',
         };
       default:
         return {
@@ -65,14 +145,60 @@ const PickupStatusScreen: React.FC<PickupStatusScreenProps> = ({ onClose }) => {
     }
   };
 
-  const statusInfo = getStatusInfo(dummyPickupRequest.status);
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>픽업 상태</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Ionicons name="close" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF8A3D" />
+          <Text style={styles.loadingText}>픽업 요청 정보를 불러오는 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !pickupRequest) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>픽업 상태</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Ionicons name="close" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#FF4444" />
+          <Text style={styles.errorText}>{error || '픽업 요청 정보를 불러올 수 없습니다.'}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={onClose}>
+            <Text style={styles.retryButtonText}>확인</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const statusInfo = getStatusInfo(pickupRequest.status);
 
   // PICK-16: 단계형 상태 표시
   const getStepStatus = (step: number) => {
-    const currentStep =
-      dummyPickupRequest.status === 'pending' ? 1 :
-      dummyPickupRequest.status === 'ready' ? 2 :
-      dummyPickupRequest.status === 'completed' ? 3 : 0;
+    let currentStep = 0;
+    
+    if (pickupRequest.status === 'COMPLETED') {
+      currentStep = 3;
+    } else if (pickupRequest.status === 'READY') {
+      currentStep = 2;
+    } else if (['ACCEPTED', 'WAITING', 'PREPARING'].includes(pickupRequest.status)) {
+      currentStep = 1;
+    } else if (pickupRequest.status === 'REQUESTED') {
+      currentStep = 1;
+    }
 
     if (step < currentStep) return 'completed';
     if (step === currentStep) return 'current';
@@ -98,7 +224,7 @@ const PickupStatusScreen: React.FC<PickupStatusScreenProps> = ({ onClose }) => {
           </View>
           <Text style={styles.successTitle}>픽업 요청이 완료되었습니다!</Text>
           <Text style={styles.successSubtitle}>
-            요청번호: {dummyPickupRequest.id}
+            요청번호: {pickupRequest.pickupId}
           </Text>
         </View>
 
@@ -212,58 +338,93 @@ const PickupStatusScreen: React.FC<PickupStatusScreenProps> = ({ onClose }) => {
         </View>
 
         {/* 예상 픽업 일자 */}
-        {dummyPickupRequest.status === 'pending' && (
+        {pickupRequest.estimatedPickupDate && ['REQUESTED', 'ACCEPTED', 'WAITING', 'PREPARING'].includes(pickupRequest.status) && (
           <View style={styles.estimateCard}>
             <Ionicons name="calendar-outline" size={20} color="#2196F3" />
             <Text style={styles.estimateText}>
-              예상 픽업 일자: {dummyPickupRequest.estimatedPickupDate}
+              예상 픽업 일자: {formatEstimatedDate(pickupRequest.estimatedPickupDate)}
             </Text>
           </View>
         )}
 
         {/* 약국 정보 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>픽업 약국</Text>
-          <View style={styles.card}>
-            <Text style={styles.pharmacyName}>{dummyPickupRequest.pharmacy.name}</Text>
-            <View style={styles.pharmacyDetail}>
-              <Ionicons name="location-outline" size={16} color="#666" />
-              <Text style={styles.pharmacyDetailText}>
-                {dummyPickupRequest.pharmacy.address}
-              </Text>
-            </View>
-            <View style={styles.pharmacyDetail}>
-              <Ionicons name="call-outline" size={16} color="#666" />
-              <Text style={styles.pharmacyDetailText}>
-                {dummyPickupRequest.pharmacy.phone}
-              </Text>
+        {pickupRequest.pharmacy && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>픽업 약국</Text>
+            <View style={styles.card}>
+              <Text style={styles.pharmacyName}>{pickupRequest.pharmacy.name}</Text>
+              <View style={styles.pharmacyDetail}>
+                <Ionicons name="location-outline" size={16} color="#666" />
+                <Text style={styles.pharmacyDetailText}>
+                  {pickupRequest.pharmacy.address}
+                  {pickupRequest.pharmacy.addressDetail && ` ${pickupRequest.pharmacy.addressDetail}`}
+                </Text>
+              </View>
+              {pickupRequest.pharmacy.phone && (
+                <View style={styles.pharmacyDetail}>
+                  <Ionicons name="call-outline" size={16} color="#666" />
+                  <Text style={styles.pharmacyDetailText}>
+                    {pickupRequest.pharmacy.phone}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
-        </View>
+        )}
 
         {/* 요청한 약품 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>요청한 약품</Text>
-          <View style={styles.card}>
-            {dummyPickupRequest.products.map((product, index) => (
-              <View key={index}>
-                <View style={styles.productItem}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productQuantity}>{product.quantity}개</Text>
+        {pickupRequest.products && pickupRequest.products.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>요청한 약품</Text>
+            <View style={styles.card}>
+              {pickupRequest.products.map((product, index) => (
+                <View key={product.id || index}>
+                  <View style={styles.productItem}>
+                    <View style={styles.productInfo}>
+                      <Text style={styles.productName}>{product.productName}</Text>
+                      {product.categoryName && (
+                        <Text style={styles.productCategory}>{product.categoryName}</Text>
+                      )}
+                      {product.manufacturer && (
+                        <Text style={styles.productManufacturer}>{product.manufacturer}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.productQuantity}>{product.quantity}개</Text>
+                  </View>
+                  {index < pickupRequest.products!.length - 1 && (
+                    <View style={styles.divider} />
+                  )}
                 </View>
-                {index < dummyPickupRequest.products.length - 1 && (
-                  <View style={styles.divider} />
-                )}
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* 요청 일시 */}
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>요청 일시</Text>
-          <Text style={styles.infoValue}>{dummyPickupRequest.requestDate}</Text>
+          <Text style={styles.infoValue}>{formatDate(pickupRequest.requestedAt)}</Text>
         </View>
+
+        {/* 약국 메모 */}
+        {pickupRequest.pharmacyMemo && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>약국 메모</Text>
+            <View style={styles.card}>
+              <Text style={styles.memoText}>{pickupRequest.pharmacyMemo}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* 거절 사유 */}
+        {pickupRequest.rejectionReason && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>거절 사유</Text>
+            <View style={[styles.card, { backgroundColor: '#FFEBEE' }]}>
+              <Text style={[styles.memoText, { color: '#F44336' }]}>{pickupRequest.rejectionReason}</Text>
+            </View>
+          </View>
+        )}
 
         {/* PICK-17: 상태 변경 알림 안내 */}
         <View style={styles.infoBox}>
@@ -294,10 +455,12 @@ const PickupStatusScreen: React.FC<PickupStatusScreenProps> = ({ onClose }) => {
 
       {/* 하단 버튼 */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.callButton} onPress={() => {}}>
-          <Ionicons name="call" size={20} color="#FF8A3D" />
-          <Text style={styles.callButtonText}>약국에 전화하기</Text>
-        </TouchableOpacity>
+        {pickupRequest.pharmacy?.phone && (
+          <TouchableOpacity style={styles.callButton} onPress={handleCall}>
+            <Ionicons name="call" size={20} color="#FF8A3D" />
+            <Text style={styles.callButtonText}>약국에 전화하기</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.homeButton} onPress={onClose}>
           <Text style={styles.homeButtonText}>홈으로 돌아가기</Text>
         </TouchableOpacity>
@@ -616,6 +779,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#FF4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#FF8A3D',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productCategory: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  productManufacturer: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  memoText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
   },
 });
 

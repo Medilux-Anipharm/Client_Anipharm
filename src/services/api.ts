@@ -21,10 +21,21 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const token = await getToken();
+    const fullUrl = `${config.baseURL}${config.url}`;
+    console.log('[API Client] Base URL:', config.baseURL);
+    console.log('[API Client] 요청 URL:', config.url);
+    console.log('[API Client] 전체 URL:', fullUrl);
+    console.log('[API Client] 요청 메서드:', config.method?.toUpperCase());
+    console.log('[API Client] 요청 데이터:', config.data);
+    console.log('[API Client] 토큰 확인:', token ? `토큰 있음 (길이: ${token.length})` : '토큰 없음');
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API Client] Authorization 헤더 설정 완료');
+    } else {
+      console.log('[API Client] 토큰이 없어서 Authorization 헤더 미설정');
     }
-    
+
     // FormData인 경우 Content-Type을 제거하여 브라우저가 자동으로 boundary 설정하도록 함
     // React Native와 웹 모두에서 FormData 감지
     if (config.data && (config.data instanceof FormData || (typeof FormData !== 'undefined' && config.data.constructor?.name === 'FormData'))) {
@@ -32,7 +43,7 @@ apiClient.interceptors.request.use(
         delete config.headers['Content-Type'];
       }
     }
-    
+
     return config;
   },
   (error) => {
@@ -75,9 +86,16 @@ apiClient.interceptors.response.use(
       }
     } else if (error.request) {
       // 요청은 보냈지만 응답을 받지 못한 경우
+      console.error('[API Client] Network Error - 요청은 보냈지만 응답을 받지 못함');
+      console.error('[API Client] 요청 URL:', error.config?.url);
+      console.error('[API Client] 전체 URL:', `${error.config?.baseURL}${error.config?.url}`);
+      console.error('[API Client] 요청 메서드:', error.config?.method?.toUpperCase());
+      console.error('[API Client] 에러 코드:', error.code);
+      console.error('[API Client] 에러 메시지:', error.message);
       console.log('서버에 연결할 수 없습니다. 네트워크를 확인해주세요.');
     } else {
       // 요청 설정 중 오류 발생
+      console.error('[API Client] 요청 설정 중 오류:', error.message);
       console.log('요청 중 오류가 발생했습니다.');
     }
 

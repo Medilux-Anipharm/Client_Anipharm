@@ -257,7 +257,26 @@ const CareChatScreen = ({
       }
     } catch (error: any) {
       console.error('메시지 전송 실패:', error);
-      const errorMessage = error.response?.data?.message || error.message || '메시지 전송에 실패했습니다.';
+      console.error('에러 상세:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        request: error.config?.data,
+      });
+      
+      // 백엔드 에러 메시지 상세 로깅
+      if (error.response?.data) {
+        console.error('백엔드 응답 데이터:', JSON.stringify(error.response.data, null, 2));
+      }
+      
+      let errorMessage = error.response?.data?.message || error.message || '메시지 전송에 실패했습니다.';
+      
+      // OpenAI API 키 관련 에러 메시지 개선
+      if (errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('OpenAI API')) {
+        errorMessage = 'AI 챗봇 서비스가 설정되지 않았습니다.\n\n서버 관리자에게 문의하시거나, 잠시 후 다시 시도해주세요.';
+      }
+      
+      console.error('백엔드 에러 메시지:', errorMessage);
       Alert.alert('오류', errorMessage);
       // 실패한 사용자 메시지 제거
       setMessages((prev) => prev.filter((msg) => msg !== newUserMessage));

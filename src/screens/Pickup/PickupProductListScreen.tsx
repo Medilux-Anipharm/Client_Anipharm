@@ -237,7 +237,7 @@ const PickupProductListScreen: React.FC<PickupProductListScreenProps> = ({
           >
             <Ionicons
               name={category.icon as any}
-              size={14}
+              size={12}
               color={selectedCategoryId === category.id ? '#FF8A3D' : '#666'}
             />
             <Text
@@ -355,27 +355,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    maxHeight: 40,
   },
   categoryTabsContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignItems: 'center',
   },
   categoryTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-    marginRight: 8,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 6,
+    borderRadius: 14,
     backgroundColor: '#F0F0F0',
   },
   categoryTabActive: {
     backgroundColor: '#FFF5ED',
   },
   categoryTabText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#666',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   categoryTabTextActive: {
     color: '#FF8A3D',

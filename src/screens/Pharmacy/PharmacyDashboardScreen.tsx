@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import pickupService from '../../services/pickup';
+import reviewService from '../../services/review';
 
 interface PharmacyData {
   pharmacyId: string;
@@ -35,6 +37,7 @@ interface PharmacyDashboardScreenProps {
 const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: PharmacyDashboardScreenProps) => {
   const [pharmacyData, setPharmacyData] = useState<PharmacyData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // 통계 데이터 (향후 API에서 가져올 예정)
   const [stats, setStats] = useState({
@@ -45,20 +48,130 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
   });
 
   useEffect(() => {
-    loadPharmacyData();
+    console.log('[PharmacyDashboard] 컴포넌트 마운트');
+    // 기존 pharmacyToken 마이그레이션 (초기 1회만 실행)
+    const migrateToken = async () => {
+      try {
+        const oldToken = await AsyncStorage.getItem('pharmacyToken');
+        if (oldToken) {
+          console.log('[PharmacyDashboard] 기존 pharmacyToken 발견, authToken으로 마이그레이션');
+          await AsyncStorage.setItem('authToken', oldToken);
+          await AsyncStorage.removeItem('pharmacyToken');
+        }
+      } catch (error) {
+        console.error('[PharmacyDashboard] 토큰 마이그레이션 실패:', error);
+      }
+    };
+
+    const init = async () => {
+      try {
+        await migrateToken();
+        await loadPharmacyData();
+        await loadStats();
+      } catch (error) {
+        console.error('[PharmacyDashboard] 초기화 실패:', error);
+        Alert.alert('오류', '약국 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
   /**
    * 약국 정보 로드
    */
-  const loadPharmacyData = async () => {
+  const loadPharmacyData = async (): Promise<PharmacyData | null> => {
     try {
+      console.log('[PharmacyDashboard] 약국 정보 로드 시작');
       const data = await AsyncStorage.getItem('pharmacyData');
       if (data) {
-        setPharmacyData(JSON.parse(data));
+        const parsedData = JSON.parse(data) as PharmacyData;
+        console.log('[PharmacyDashboard] 약국 정보 로드 성공:', parsedData);
+        setPharmacyData(parsedData);
+        return parsedData;
+      } else {
+        console.warn('[PharmacyDashboard] 약국 정보가 없습니다.');
+        return null;
       }
     } catch (error) {
-      console.error('약국 정보 로드 실패:', error);
+      console.error('[PharmacyDashboard] 약국 정보 로드 실패:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * 통계 데이터 로드
+   */
+  const loadStats = async () => {
+    try {
+      console.log('[PharmacyDashboard] 통계 데이터 로드 시작');
+      
+      const pharmacyInfo = await loadPharmacyData();
+      if (!pharmacyInfo) {
+        console.error('[PharmacyDashboard] 약국 정보가 없어 통계를 불러올 수 없습니다.');
+        return;
+      }
+
+      const pharmacyId = Number(pharmacyInfo.pharmacyId);
+      if (!pharmacyId || isNaN(pharmacyId)) {
+        console.error('[PharmacyDashboard] 약국 ID가 유효하지 않습니다:', pharmacyInfo.pharmacyId);
+        return;
+      }
+
+      console.log('[PharmacyDashboard] 약국 ID:', pharmacyId);
+
+      // 픽업 통계와 리뷰 통계를 병렬로 로드
+      const [pickupStats, reviewSummary] = await Promise.allSettled([
+        pickupService.getPharmacyStats(),
+        reviewService.getPharmacyReviewSummary(pharmacyId),
+      ]);
+
+      console.log('[PharmacyDashboard] 픽업 통계:', pickupStats);
+      console.log('[PharmacyDashboard] 리뷰 통계:', reviewSummary);
+
+      // 픽업 통계 처리
+      if (pickupStats.status === 'fulfilled') {
+        const pickupData = pickupStats.value;
+        console.log('[PharmacyDashboard] 픽업 통계 데이터:', pickupData);
+        
+        // pendingRequests 계산 (REQUESTED, WAITING 상태)
+        const pendingRequests = (pickupData.REQUESTED || 0) + (pickupData.WAITING || 0);
+        
+        // completedToday 계산
+        const completedToday = pickupData.todayCompleted || 0;
+
+        setStats(prev => ({
+          ...prev,
+          pendingRequests,
+          completedToday,
+        }));
+      } else {
+        console.error('[PharmacyDashboard] 픽업 통계 로드 실패:', pickupStats.reason);
+      }
+
+      // 리뷰 통계 처리
+      if (reviewSummary.status === 'fulfilled') {
+        const reviewData = reviewSummary.value;
+        console.log('[PharmacyDashboard] 리뷰 통계 데이터:', reviewData);
+        
+        const averageRating = typeof reviewData.averageRating === 'string' 
+          ? parseFloat(reviewData.averageRating) 
+          : (reviewData.averageRating || 0);
+        
+        setStats(prev => ({
+          ...prev,
+          totalReviews: reviewData.totalReviews || 0,
+          averageRating: isNaN(averageRating) ? 0 : averageRating,
+        }));
+      } else {
+        console.error('[PharmacyDashboard] 리뷰 통계 로드 실패:', reviewSummary.reason);
+      }
+
+      console.log('[PharmacyDashboard] 통계 데이터 로드 완료');
+    } catch (error) {
+      console.error('[PharmacyDashboard] 통계 데이터 로드 실패:', error);
     }
   };
 
@@ -67,8 +180,10 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
    */
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPharmacyData();
-    // TODO: 통계 데이터 로드
+    await Promise.all([
+      loadPharmacyData(),
+      loadStats(),
+    ]);
     setRefreshing(false);
   };
 
@@ -92,13 +207,21 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
     ]);
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>로딩 중...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>약국 관리</Text>
-          <Text style={styles.headerSubtitle}>{pharmacyData?.name || '로딩 중...'}</Text>
+          <Text style={styles.headerSubtitle}>{pharmacyData?.name || '약국 정보 없음'}</Text>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={24} color="#FF4444" />
@@ -178,7 +301,16 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
         <View style={styles.menuContainer}>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={onNavigateToPickupRequests}
+            onPress={() => {
+              console.log('[PharmacyDashboard] 픽업 요청 관리 버튼 클릭');
+              if (onNavigateToPickupRequests) {
+                console.log('[PharmacyDashboard] onNavigateToPickupRequests 호출');
+                onNavigateToPickupRequests();
+              } else {
+                console.error('[PharmacyDashboard] onNavigateToPickupRequests가 정의되지 않음');
+                Alert.alert('오류', '픽업 요청 관리 페이지로 이동할 수 없습니다.');
+              }
+            }}
           >
             <View style={styles.menuIconContainer}>
               <Ionicons name="list-outline" size={24} color="#FF8A3D" />
@@ -187,7 +319,12 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              Alert.alert('개발 중', '리뷰 관리 기능은 현재 개발 중입니다.');
+            }}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="star-outline" size={24} color="#FFB800" />
             </View>
@@ -195,7 +332,12 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              Alert.alert('개발 중', '약국 정보 수정 기능은 현재 개발 중입니다.');
+            }}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="settings-outline" size={24} color="#666" />
             </View>
@@ -203,7 +345,12 @@ const PharmacyDashboardScreen = ({ onLogout, onNavigateToPickupRequests }: Pharm
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              Alert.alert('개발 중', '통계 보기 기능은 현재 개발 중입니다.');
+            }}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="stats-chart-outline" size={24} color="#4CAF50" />
             </View>

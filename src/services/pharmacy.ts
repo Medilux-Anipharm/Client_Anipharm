@@ -47,6 +47,37 @@ class PharmacyService {
   }
 
   /**
+   * 키워드로 동물약국 검색
+   * @param keyword - 검색 키워드 (약국명 또는 주소)
+   * @param limit - 결과 개수 제한 (기본값: 20)
+   * @returns 검색된 동물약국 목록
+   */
+  async searchByKeyword(
+    keyword: string,
+    limit: number = 20
+  ): Promise<VeterinaryPharmacy[]> {
+    try {
+      const response = await apiClient.get<NearbyPharmaciesResponse>(
+        '/pharmacies/search',
+        {
+          params: {
+            keyword,
+            limit: limit.toString(),
+          },
+        }
+      );
+      console.log('약국 검색 데이터:', response.data);
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          '약국 검색 중 오류가 발생했습니다.'
+      );
+    }
+  }
+
+  /**
    * 지도 마커 데이터 조회
    * @param latitude - 위도
    * @param longitude - 경도

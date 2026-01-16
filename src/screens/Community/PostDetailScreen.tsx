@@ -152,6 +152,36 @@ const PostDetailScreen: React.FC<PostDetailScreenProps> = ({
     ]);
   };
 
+  // 게시글 삭제
+  const handlePostDelete = async () => {
+    Alert.alert('게시글 삭제', '게시글을 삭제하시겠습니까?\n삭제된 게시글은 복구할 수 없습니다.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const response = await communityService.deletePost(postId);
+
+            if (response.success) {
+              Alert.alert('삭제 완료', '게시글이 삭제되었습니다.', [
+                { text: '확인', onPress: onNavigateBack },
+              ]);
+            } else {
+              Alert.alert('오류', response.message || '게시글 삭제에 실패했습니다.');
+            }
+          } catch (error: any) {
+            console.error('게시글 삭제 에러:', error);
+            Alert.alert('오류', '게시글 삭제 중 오류가 발생했습니다.');
+          }
+        },
+      },
+    ]);
+  };
+
+  // 본인 작성 글인지 확인
+  const isAuthor = userData && post && post.authorId === userData.userId;
+
   // 시간 포맷팅
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -189,13 +219,20 @@ const PostDetailScreen: React.FC<PostDetailScreenProps> = ({
           <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.likeButton} onPress={handleLikeToggle}>
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
-              size={28}
-              color={isLiked ? '#FF8A3D' : '#333'}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.likeButton} onPress={handleLikeToggle}>
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={28}
+                color={isLiked ? '#FF8A3D' : '#333'}
+              />
+            </TouchableOpacity>
+            {isAuthor && (
+              <TouchableOpacity style={styles.deleteButton} onPress={handlePostDelete}>
+                <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -314,7 +351,15 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   likeButton: {
+    padding: 4,
+  },
+  deleteButton: {
     padding: 4,
   },
   loadingContainer: {

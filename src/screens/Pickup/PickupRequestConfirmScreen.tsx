@@ -10,24 +10,27 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SelectedProduct } from '../../types/pickup';
+import { VeterinaryPharmacy } from '../../types/pharmacy';
+import pickupService from '../../services/pickup';
+import { CreatePickupRequestData } from '../../types/pickup';
 
-interface DummyPharmacy {
-  id: string;
-  name: string;
-  address: string;
-  distance: string;
-  phone: string;
-  openHours: string;
-  isOpen: boolean;
-  hasStock: boolean;
+interface SelectedProduct {
+  product: {
+    id: string;
+    categoryId: string;
+    name: string;
+    nameKo: string;
+    manufacturer: string;
+    purpose: string;
+  };
+  quantity: number;
 }
 
 interface PickupRequestConfirmScreenProps {
   selectedProducts: SelectedProduct[];
-  selectedPharmacy: DummyPharmacy;
+  selectedPharmacy: VeterinaryPharmacy;
   onBack: () => void;
-  onConfirm: () => void;
+  onConfirm: (pickupId: number) => void;
 }
 
 const PickupRequestConfirmScreen: React.FC<PickupRequestConfirmScreenProps> = ({
@@ -41,29 +44,61 @@ const PickupRequestConfirmScreen: React.FC<PickupRequestConfirmScreenProps> = ({
   // 총 수량 계산
   const totalQuantity = selectedProducts.reduce((sum, item) => sum + item.quantity, 0);
 
+  // 거리 포맷팅
+  const formatDistance = (distance?: number): string => {
+    if (!distance) return '거리 정보 없음';
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)}m`;
+    }
+    return `${distance.toFixed(1)}km`;
+  };
+
   // 픽업 요청 제출 (PICK-14)
   const handleSubmitRequest = async () => {
     try {
       setIsSubmitting(true);
 
-      // TODO: 실제 API 호출로 대체
-      // const response = await api.submitPickupRequest({
-      //   products: selectedProducts,
-      //   pharmacyId: selectedPharmacy.id,
-      // });
+      // API 요청 데이터 생성
+      const requestData: CreatePickupRequestData = {
+        pharmacyId: selectedPharmacy.pharmacyId,
+        products: selectedProducts.map((item) => {
+          // categoryId를 categoryName으로 변환
+          const categoryNameMap: Record<string, string> = {
+            'parasite_prevention': '구충·예방 관리',
+            'digestive_health': '장 건강·설사 관리',
+            'skin_care': '피부·가려움 관리',
+            'ear_care': '귀 염증 초기 관리',
+            'eye_care': '눈 관리·안구 세정',
+            'wound_care': '상처·피부 세정·소독',
+            'nutrition_supplement': '영양·면역·관절 보조',
+          };
 
-      // 더미 데이터로 1초 지연
-      await new Promise(resolve => setTimeout(resolve, 1000));
+          return {
+            categoryId: item.product.categoryId,
+            categoryName: categoryNameMap[item.product.categoryId] || item.product.categoryId,
+            productName: item.product.nameKo || item.product.name,
+            manufacturer: item.product.manufacturer,
+            quantity: item.quantity,
+          };
+        }),
+        estimatedDays: 5, // 기본값 5일
+      };
+
+      console.log('픽업 요청 데이터:', requestData);
+
+      // 실제 API 호출
+      const createdPickup = await pickupService.createPickupRequest(requestData);
 
       setIsSubmitting(false);
 
-      // 성공 시 픽업 상태 확인 페이지로 바로 이동 (PICK-15)
-      onConfirm();
-    } catch (error) {
+      // 성공 시 생성된 pickupId와 함께 픽업 요청 성공 페이지로 이동
+      onConfirm(createdPickup.pickupId);
+    } catch (error: any) {
       setIsSubmitting(false);
+      console.error('픽업 요청 실패:', error);
       Alert.alert(
         '요청 실패',
-        '픽업 요청 중 오류가 발생했습니다. 다시 시도해주세요.',
+        error.message || '픽업 요청 중 오류가 발생했습니다. 다시 시도해주세요.',
         [{ text: '확인' }]
       );
     }
@@ -117,36 +152,37 @@ const PickupRequestConfirmScreen: React.FC<PickupRequestConfirmScreenProps> = ({
 
             <View style={styles.pharmacyDetail}>
               <Ionicons name="location-outline" size={16} color="#666" />
-              <Text style={styles.pharmacyDetailText}>{selectedPharmacy.address}</Text>
+              <Text style={styles.pharmacyDetailText}>
+                {selectedPharmacy.address}
+                {selectedPharmacy.addressDetail && ` ${selectedPharmacy.addressDetail}`}
+              </Text>
             </View>
 
-            <View style={styles.pharmacyDetail}>
-              <Ionicons name="navigate-outline" size={16} color="#666" />
-              <Text style={styles.pharmacyDetailText}>{selectedPharmacy.distance}</Text>
-            </View>
+            {selectedPharmacy.distance !== undefined && (
+              <View style={styles.pharmacyDetail}>
+                <Ionicons name="navigate-outline" size={16} color="#666" />
+                <Text style={styles.pharmacyDetailText}>
+                  {formatDistance(selectedPharmacy.distance)}
+                </Text>
+              </View>
+            )}
 
-            <View style={styles.pharmacyDetail}>
-              <Ionicons name="call-outline" size={16} color="#666" />
-              <Text style={styles.pharmacyDetailText}>{selectedPharmacy.phone}</Text>
-            </View>
-
-            <View style={styles.pharmacyDetail}>
-              <Ionicons name="time-outline" size={16} color="#666" />
-              <Text style={styles.pharmacyDetailText}>{selectedPharmacy.openHours}</Text>
-            </View>
+            {selectedPharmacy.phone && (
+              <View style={styles.pharmacyDetail}>
+                <Ionicons name="call-outline" size={16} color="#666" />
+                <Text style={styles.pharmacyDetailText}>{selectedPharmacy.phone}</Text>
+              </View>
+            )}
 
             {/* PICK-10: 재고 상태 안내 */}
             <View style={styles.stockInfo}>
               <Ionicons
-                name={selectedPharmacy.hasStock ? 'checkmark-circle' : 'time'}
+                name="information-circle-outline"
                 size={20}
-                color={selectedPharmacy.hasStock ? '#4CAF50' : '#FF9800'}
+                color="#FF9800"
               />
-              <Text style={[
-                styles.stockText,
-                selectedPharmacy.hasStock ? styles.stockAvailable : styles.stockOrder
-              ]}>
-                {selectedPharmacy.hasStock ? '즉시 픽업 가능' : '발주 후 픽업'}
+              <Text style={styles.stockText}>
+                약국에서 재고 확인 후 알려드립니다
               </Text>
             </View>
           </View>

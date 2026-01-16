@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginScreen from './src/screens/Auth/LoginScreen';
 import SignUpScreen from './src/screens/Auth/SignUpScreen';
 import PharmacyLoginScreen from './src/screens/Auth/PharmacyLoginScreen';
@@ -22,7 +23,7 @@ import CommunityScreen from './src/screens/Community/CommunityScreen';
 import PostWriteScreen from './src/screens/Community/PostWriteScreen';
 import PostDetailScreen from './src/screens/Community/PostDetailScreen';
 import PickupProductListScreen from './src/screens/Pickup/PickupProductListScreen';
-import PickupPharmacySelectScreen, { DummyPharmacy } from './src/screens/Pickup/PickupPharmacySelectScreen';
+import PickupPharmacySelectScreen from './src/screens/Pickup/PickupPharmacySelectScreen';
 import PickupRequestConfirmScreen from './src/screens/Pickup/PickupRequestConfirmScreen';
 import PickupStatusScreen from './src/screens/Pickup/PickupStatusScreen';
 import PickupHistoryScreen from './src/screens/Pickup/PickupHistoryScreen';
@@ -97,8 +98,9 @@ export default function App() {
     product: PickupProduct;
     quantity: number;
   }>>([]);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<DummyPharmacy | null>(null);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<VeterinaryPharmacy | null>(null);
   const [selectedPickupRequestId, setSelectedPickupRequestId] = useState<string | null>(null);
+  const [currentPickupId, setCurrentPickupId] = useState<number | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<{
     type: 'pharmacy' | 'hospital';
     place: VeterinaryPharmacy | VeterinaryHospital;
@@ -175,7 +177,9 @@ export default function App() {
   };
 
   // 약국 로그아웃
-  const handlePharmacyLogout = () => {
+  const handlePharmacyLogout = async () => {
+    await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.removeItem('pharmacyData');
     setPharmacyData(null);
     setCurrentScreen('pharmacyLogin');
   };
@@ -467,7 +471,7 @@ export default function App() {
   };
 
   // 픽업 약국 선택 시 요청 확인 페이지로 이동 (PICK-11)
-  const handleNavigateToPickupRequestConfirm = (pharmacy: DummyPharmacy) => {
+  const handleNavigateToPickupRequestConfirm = (pharmacy: VeterinaryPharmacy) => {
     setSelectedPharmacy(pharmacy);
     setCurrentScreen('pickupRequestConfirm');
   };
@@ -478,7 +482,8 @@ export default function App() {
   };
 
   // 픽업 요청 제출 완료 후 상태 확인 페이지로 이동 (PICK-15)
-  const handlePickupRequestConfirmed = () => {
+  const handlePickupRequestConfirmed = (pickupId: number) => {
+    setCurrentPickupId(pickupId);
     setCurrentScreen('pickupStatus');
   };
 
@@ -487,6 +492,7 @@ export default function App() {
     setSelectedPickupProducts([]);
     setSelectedPickupCategoryId(null);
     setSelectedPharmacy(null);
+    setCurrentPickupId(null);
     setCurrentScreen('home');
     setHomeInitialTab('journal');
   };
@@ -763,8 +769,9 @@ export default function App() {
           onBack={handlePickupRequestConfirmBack}
           onConfirm={handlePickupRequestConfirmed}
         />
-      ) : currentScreen === 'pickupStatus' ? (
+      ) : currentScreen === 'pickupStatus' && currentPickupId ? (
         <PickupStatusScreen
+          pickupId={currentPickupId}
           onClose={handlePickupStatusClose}
         />
       ) : currentScreen === 'pickupHistory' ? (
@@ -790,6 +797,14 @@ export default function App() {
           placeId={reviewWriteParams.placeId}
           placeName={reviewWriteParams.placeName}
           onNavigateBack={handleReviewWriteBack}
+          onReviewCreated={(reviewId) => {
+            if (reviewId) {
+              setSelectedReviewId(reviewId);
+              setCurrentScreen('reviewDetail');
+            } else {
+              handleReviewWriteBack();
+            }
+          }}
         />
       ) : currentScreen === 'reviewEdit' && reviewWriteParams && reviewWriteParams.reviewId ? (
         <ReviewWriteScreen
@@ -798,12 +813,30 @@ export default function App() {
           placeName={reviewWriteParams.placeName}
           reviewId={reviewWriteParams.reviewId}
           onNavigateBack={handleReviewWriteBack}
+          onReviewCreated={(reviewId) => {
+            if (reviewId) {
+              setSelectedReviewId(reviewId);
+              setCurrentScreen('reviewDetail');
+            } else {
+              handleReviewWriteBack();
+            }
+          }}
         />
       ) : currentScreen === 'reviewDetail' && selectedReviewId ? (
         <ReviewDetailScreen
           reviewId={selectedReviewId}
           onNavigateBack={handleReviewDetailBack}
-          onNavigateToEdit={handleNavigateToReviewEdit}
+          onNavigateToEdit={(reviewId) => {
+            if (reviewWriteParams) {
+              handleNavigateToReviewEdit(
+                reviewWriteParams.type,
+                reviewWriteParams.placeId,
+                reviewWriteParams.placeName,
+                reviewId
+              );
+            }
+          }}
+          userData={userData || undefined}
         />
       ) : (
         <HomeScreen
